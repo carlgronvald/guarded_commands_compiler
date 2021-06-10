@@ -3,7 +3,7 @@
 
 // You must revise the following path 
 
-#r @"..\packages\FsLexYacc.Runtime.7.0.6\lib\portable-net45+netcore45+wpa81+wp8+MonoAndroid10+MonoTouch10\FsLexYacc.Runtime.dll";
+#r @"../packages/FsLexYacc.Runtime.7.0.6/lib/portable-net45+netcore45+wpa81+wp8+MonoAndroid10+MonoTouch10/FsLexYacc.Runtime.dll";
 
 #load "AST.fs"
 #load "Parser.fs"
@@ -14,7 +14,7 @@
 #load "CodeGenOpt.fs"
 #load "VirtualMachine.fs"
 #load "Util.fs"
-
+#load "Tests.fs"
 
 open GuardedCommands.Util
 open GuardedCommands.Frontend.TypeCheck
@@ -28,8 +28,10 @@ open CompilerUtil
 
 System.IO.Directory.SetCurrentDirectory __SOURCE_DIRECTORY__;;
 
-// The Ex0.gc example:
+// Own tests
+Tests.test();;
 
+// The Ex0.gc example:
 let ex0Tree = parseFromFile "Ex0.gc";;
 
 let _ = tcP ex0Tree;;
