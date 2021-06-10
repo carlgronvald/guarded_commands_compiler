@@ -3,7 +3,7 @@
 
 // You must revise the following path 
 
-#r @"C:\Users\mire\Documents\MRH data\Kurser\02257-21\Project2Test\GuardedCommands\packages\FsLexYacc.Runtime.7.0.6\lib\portable-net45+netcore45+wpa81+wp8+MonoAndroid10+MonoTouch10\FsLexYacc.Runtime.dll";
+#r @"..\packages\FsLexYacc.Runtime.7.0.6\lib\portable-net45+netcore45+wpa81+wp8+MonoAndroid10+MonoTouch10\FsLexYacc.Runtime.dll";
 
 #load "AST.fs"
 #load "Parser.fs"
@@ -76,7 +76,7 @@ List.item 2 pts ;;
 (*
 // Test of programs covered by the first task (Section 3.7):
 List.iter exec ["Ex1.gc"; "Ex2.gc";"Ex3.gc"; "Ex4.gc"; "Ex5.gc"; "Ex6.gc"; "Skip.gc"];;
-
+ 
 // Test of programs covered by the second task (Section 4.3):
 List.iter exec ["Ex7.gc"; "fact.gc"; "factRec.gc"; "factCBV.gc"];;
 
