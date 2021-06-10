@@ -15,7 +15,7 @@ module TypeCheck =
          | Apply(f,[e]) when List.exists (fun x ->  x=f) ["-"]  
                             -> tcMonadic gtenv ltenv f e        
 
-         | Apply(f,[e1;e2]) when List.exists (fun x ->  x=f) ["+";"*"; "="; "&&"]        
+         | Apply(f,[e1;e2]) when List.exists (fun x ->  x=f) ["+";"*"; "="; "&&"; "/"]        
                             -> tcDyadic gtenv ltenv f e1 e2   
 
          | _                -> failwith "tcE: not supported yet"
@@ -51,12 +51,17 @@ module TypeCheck =
 /// tcS gtenv ltenv s checks the well-typeness of a statement s on the basis of type environments gtenv and ltenv
 /// for global and local variables 
    and tcS gtenv ltenv = function                           
-                         | PrintLn e -> ignore(tcE gtenv ltenv e)
+                         | PrintLn e -> tcE gtenv ltenv e |> ignore
                          | Ass(acc,e) -> if tcA gtenv ltenv acc = tcE gtenv ltenv e 
                                          then ()
                                          else failwith "illtyped assignment"                                
 
                          | Block([],stms) -> List.iter (tcS gtenv ltenv) stms
+                         // TODO: RETURN IS MISSING
+                         | Alt(gc) -> tcGC gtenv ltenv gc
+                         | Do(gc) -> tcGC gtenv ltenv gc
+                         // TODO: BLOCK IS MISSING
+                         // TODO: CALL IS MISSING
                          | _              -> failwith "tcS: this statement is not supported yet"
 
    and tcGDec gtenv = function  
@@ -67,6 +72,12 @@ module TypeCheck =
                        | dec::decs -> tcGDecs (tcGDec gtenv dec) decs
                        | _         -> gtenv
 
+    and tcGC gtenv ltenv = function
+        | GC(ls) ->
+            List.iter (fun (exp, stmts) -> 
+                if tcE gtenv ltenv exp <> BTyp then failwith "Guarded Command expression not of boolean type!"
+                List.iter (tcS gtenv ltenv) stmts
+            ) ls
 
 /// tcP prog checks the well-typeness of a program prog
    and tcP(P(decs, stms)) = let gtenv = tcGDecs Map.empty decs
