@@ -72,7 +72,6 @@ module CodeGeneration =
             let expr_instr_list =
                 List.fold (fun s exp -> s @ CE vEnv fEnv exp) [] es
             
-            //TODO: DEAL WITH THE BASE POINTER AND RETURN POINTER IN FUNCTIONS
             expr_instr_list @  [CALL (parameters.Length, lab)]
 
     

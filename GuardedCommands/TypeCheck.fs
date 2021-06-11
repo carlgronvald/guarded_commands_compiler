@@ -3,6 +3,8 @@
 
 open GuardedCommands.Frontend.AST
 
+//TODO: CHECK FOR NAME CLASHES
+
 module TypeCheck = 
     let distinct list = list |> Set.ofList |> Set.toList
 
@@ -44,6 +46,10 @@ module TypeCheck =
 
             | Apply(f, es) -> //Function call
                 tcNaryFunction gtenv ltenv f es
+
+            | Addr(acc) -> 
+                tcA gtenv ltenv acc |> PTyp
+
             | s                -> failwith (sprintf "tcE: not supported yet %A" s)
 
     and tcMonadic gtenv ltenv f e = match (f, tcE gtenv ltenv e) with
@@ -104,7 +110,12 @@ module TypeCheck =
                                           | ITyp -> ()
                                           | _ -> failwith ("Illegal variable indexing. Variables can only be indexed with integers.")
                 tcA gtenv ltenv acc
-            | ADeref e       -> failwith "tcA: pointer dereferencing not supported yet"
+            | ADeref e       ->
+                match tcE gtenv ltenv e with
+                | PTyp(typ) -> typ
+                | _ -> failwith "We can only dereference a pointer"
+
+
                                         //TODO: I don't understand how pointers work in this language
 
     /// tcS gtenv ltenv s checks the well-typeness of a statement s on the basis of type environments gtenv and ltenv
