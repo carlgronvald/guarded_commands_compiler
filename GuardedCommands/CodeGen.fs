@@ -50,27 +50,30 @@ module CodeGeneration =
         match typ with
         | ATyp (ATyp _, _) -> 
             raise (Failure "allocate: array of arrays not permitted")
-        | ATyp (t, Some i) -> failwith "allocate: array not supported yet"
+        | ATyp (t, Some i) ->
+            let newEnv = (Map.add x (kind fdepth, typ) env, fdepth+i)
+            let code = [INCSP i]
+            (newEnv, code)
         | _ -> 
             let newEnv = (Map.add x (kind fdepth, typ) env, fdepth+1)
             let code = [INCSP 1]
             (newEnv, code)
+    
+    /// Returns the modified variable environment and the instructions for local declarations of variables
+    let modify_local_environment vEnv =
+        function
+        | VarDec(typ, string) -> allocate LocVar (typ, string) vEnv
+        | FunDec(_) -> failwith "Cannot locally define a function"
 
     let rec function_call vEnv fEnv function_name es =
         match Map.tryFind function_name fEnv with
         | None -> failwith "Function call to nonexistant function" 
-        | Some(lab, topt, parameters) ->
+        | Some(lab, topt, (parameters: (Typ * string) list)) ->
             let expr_instr_list =
                 List.fold (fun s exp -> s @ CE vEnv fEnv exp) [] es
-
-            let (vEnv, alloc_instr_list) = 
-                List.fold (fun (variable_environment, instructions) x ->
-                    let (v2,i2) = allocate LocVar (x) vEnv
-                    (v2, instructions@i2)
-                ) (vEnv, []) parameters 
             
             //TODO: DEAL WITH THE BASE POINTER AND RETURN POINTER IN FUNCTIONS
-            expr_instr_list @ [INCSP -parameters.Length] @ alloc_instr_list @ [CALL (parameters.Length, lab)]
+            expr_instr_list @  [CALL (parameters.Length, lab)]
 
     
     /// CE vEnv fEnv e gives the code for an expression e on the basis of a variable and a function environment
@@ -107,10 +110,13 @@ module CodeGeneration =
  /// CA vEnv fEnv acc gives the code for an access acc on the basis of a variable and a function environment
  ///
  /// CA = Code (generation for an) Access
-    and CA vEnv fEnv = function | AVar x         -> match Map.find x (fst vEnv) with
-                                                    | (GloVar addr,_) -> [CSTI addr]
-                                                    | (LocVar addr,_) -> failwith "CA: Local variables not supported yet"
-                                | AIndex(acc, e) -> failwith "CA: array indexing not supported yet" 
+    and CA vEnv fEnv = function | AVar x -> match Map.find x (fst vEnv) with
+                                            | (GloVar addr,_) -> [CSTI addr]
+                                            | (LocVar addr,_) -> 
+                                                [GETBP; CSTI addr; ADD]
+                                | AIndex(acc, e) -> failwith "CA: array indexing not supported yet"
+
+                                // TODO: what derefs here? is it a pointer to a point on the stack?
                                 | ADeref e       -> failwith "CA: pointer dereferencing not supported yet"
  
    
@@ -124,6 +130,13 @@ module CodeGeneration =
         | Ass(acc,e)       -> CA vEnv fEnv acc @ CE vEnv fEnv e @ [STI; INCSP -1]
  
         | Block([],stms) ->   CSs vEnv fEnv stms
+        | Block(declarations, stms) ->
+            let (vEnv, dec_instructions) =
+                List.fold (fun (env,instrs) t ->
+                    let (env, instrs2) = modify_local_environment env t
+                    (env, instrs @ instrs2)
+                ) (vEnv, []) declarations
+            dec_instructions @ CSs vEnv fEnv stms
 
         | Alt(gc) -> 
             let outer_label = newLabel()
@@ -133,7 +146,17 @@ module CodeGeneration =
             let outer_label = newLabel()
             [Label outer_label] @ CGC vEnv fEnv gc outer_label //Every match in a do GC means jumping to the start
 
-        | _                -> failwith "CS: this statement is not supported yet"
+        | Return(optexp) ->
+            let (first_instructions, last_instructions) = 
+                match optexp with
+                | None -> ([CSTI 0], [INCSP -1]) 
+                | Some(exp) -> (CE vEnv fEnv exp, [])
+            let stack_frame_size = snd vEnv 
+
+            first_instructions @ [RET stack_frame_size] @ last_instructions
+
+        | Call(f, expressions) ->
+            function_call vEnv fEnv f expressions
  
     and CSs vEnv fEnv stms = List.collect (CS vEnv fEnv) stms 
  
@@ -172,11 +195,19 @@ module CodeGeneration =
                                      (vEnv2, fEnv2, code1 @ code2)
               | FunDec (tyOpt, f, xs, body) -> 
                   let lab = newLabel()
+                  let parameters = generateParamDecs xs
                   let fEnv = Map.add f (lab, tyOpt, generateParamDecs xs) fEnv
-                  let (vEnv2, fEnv2, code2) = addv decr vEnv fEnv 
+                  
+                  let (vEnv_inner, _) = 
+                      List.fold (fun (variable_environment, instructions) x ->
+                          let (v2,i2) = allocate LocVar (x) vEnv
+                          (v2, instructions@i2)
+                      ) ((Map.empty,0), []) parameters 
 
-                  // TODO: FUNCTION DECLARATIONS NEED TO DEAL WITH THE BASE POINTER
-                  (vEnv2, fEnv2, [Label lab] @ CS vEnv fEnv body @ code2) //TODO: Test function declarations
+                    
+                  let (vEnv2, fEnv2, code2) = addv decr vEnv fEnv 
+                  // TODO: figure out how to get the base pointer for when we access local variables.
+                  vEnv2, fEnv2, [Label lab] @ CS vEnv_inner fEnv body @ [RET xs.Length] @ code2
         addv decs (Map.empty, 0) Map.empty
  
  /// CP prog gives the code for a program prog
