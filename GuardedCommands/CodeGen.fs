@@ -63,13 +63,14 @@ module CodeGeneration =
             let expr_instr_list =
                 List.fold (fun s exp -> s @ CE vEnv fEnv exp) [] es
 
-            let (vEnv, instr_list) = 
+            let (vEnv, alloc_instr_list) = 
                 List.fold (fun (variable_environment, instructions) x ->
                     let (v2,i2) = allocate LocVar (x) vEnv
                     (v2, instructions@i2)
                 ) (vEnv, []) parameters 
             
-            expr_instr_list @ [INCSP -parameters.Length] @ instr_list @ [CALL (parameters.Length, lab)] //TODO: Test function calls
+            //TODO: DEAL WITH THE BASE POINTER AND RETURN POINTER IN FUNCTIONS
+            expr_instr_list @ [INCSP -parameters.Length] @ alloc_instr_list @ [CALL (parameters.Length, lab)]
 
     
     /// CE vEnv fEnv e gives the code for an expression e on the basis of a variable and a function environment
@@ -123,12 +124,28 @@ module CodeGeneration =
         | Ass(acc,e)       -> CA vEnv fEnv acc @ CE vEnv fEnv e @ [STI; INCSP -1]
  
         | Block([],stms) ->   CSs vEnv fEnv stms
- 
+
+        | Alt(gc) -> 
+            let outer_label = newLabel()
+            CGC vEnv fEnv gc outer_label @ [STOP; Label outer_label] //No matches in an alternate GC = abort
+
+        | Do(gc) ->
+            let outer_label = newLabel()
+            [Label outer_label] @ CGC vEnv fEnv gc outer_label //Every match in a do GC means jumping to the start
+
         | _                -> failwith "CS: this statement is not supported yet"
  
     and CSs vEnv fEnv stms = List.collect (CS vEnv fEnv) stms 
  
- 
+    /// Code generation for a Guarded Command
+    and CGC vEnv fEnv (GC(ls)) outer_label =
+        let instrs = 
+            List.collect (fun (exp, stms) ->
+                let lab = newLabel()
+                let inner_statements = CSs vEnv fEnv stms
+                CE vEnv fEnv exp @ [IFZERO lab] @ inner_statements @ [GOTO outer_label; Label lab]
+            ) ls
+        instrs
  
  (* ------------------------------------------------------------------- *)
  
@@ -138,7 +155,7 @@ module CodeGeneration =
         List.map (fun (d:Dec) -> 
             match d with
             | VarDec(typ, name) -> (typ, name)
-            | _ -> failwith "Only variables are allowed as declarations!"
+            | _ -> failwith "Only variables are allowed as function parameters!"
         ) xs
 
     let makeGlobalEnvs decs = 
@@ -156,7 +173,9 @@ module CodeGeneration =
               | FunDec (tyOpt, f, xs, body) -> 
                   let lab = newLabel()
                   let fEnv = Map.add f (lab, tyOpt, generateParamDecs xs) fEnv
-                  let (vEnv2, fEnv2, code2) = addv decr vEnv fEnv
+                  let (vEnv2, fEnv2, code2) = addv decr vEnv fEnv 
+
+                  // TODO: FUNCTION DECLARATIONS NEED TO DEAL WITH THE BASE POINTER
                   (vEnv2, fEnv2, [Label lab] @ CS vEnv fEnv body @ code2) //TODO: Test function declarations
         addv decs (Map.empty, 0) Map.empty
  
