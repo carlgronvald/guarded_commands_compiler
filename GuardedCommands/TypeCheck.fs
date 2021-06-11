@@ -4,14 +4,19 @@
 open GuardedCommands.Frontend.AST
 
 module TypeCheck = 
+    let distinct list = list |> Set.ofList |> Set.toList
+
     let bool_logic_operators = ["&&";"=";"<>";"||"]
     let int_logic_operators = ["<";">";"<=";">=";"<>"]
     let arithmetic_operators = ["+";"*";"/"]
-    let binary_operators = Seq.ofList (bool_logic_operators @ int_logic_operators @ arithmetic_operators) |> Seq.distinct |> List.ofSeq
-    let unary_operators = ["-"]
+    let binary_operators = bool_logic_operators @ int_logic_operators @ arithmetic_operators |> distinct
+    let unary_int_operators = ["-"]
+    let unary_bool_operators = ["!"]
+    let unary_operators = unary_int_operators @ unary_bool_operators |> distinct
     let return_prefix = "return "
     let procedure_prefix = "procedure "
-    /// If we're inside a function, this is set in the local environment to the return type of the function
+
+    /// When we enter a function or procedure, we need to know that. This adds it to the local environment
     let enter_procedure ltenv = Map.add "in procedure" ITyp ltenv
     let enter_function ltenv typ = Map.add "return type" typ ltenv
     /// If we're inside a procedure, this is set in the local environment to some type (that is not further defined)
@@ -42,13 +47,14 @@ module TypeCheck =
             | s                -> failwith (sprintf "tcE: not supported yet %A" s)
 
     and tcMonadic gtenv ltenv f e = match (f, tcE gtenv ltenv e) with
-                                    | ("-", ITyp) -> ITyp
+                                    | (o, ITyp) when List.exists (fun x -> x=o) unary_int_operators -> ITyp
+                                    | (o, BTyp) when List.exists (fun x -> x=o) unary_bool_operators -> BTyp
                                     | s           -> failwith (sprintf "illegal/illtyped monadic expression %A" s)
    
     and tcDyadic gtenv ltenv f e1 e2 = match (f, tcE gtenv ltenv e1, tcE gtenv ltenv e2) with
                                         | (o, ITyp, ITyp) when List.exists (fun x ->  x=o) arithmetic_operators -> ITyp
                                         | (o, ITyp, ITyp) when List.exists (fun x ->  x=o) int_logic_operators  -> BTyp
-                                        | (o, BTyp, BTyp) when List.exists (fun x ->  x=o) arithmetic_operators -> BTyp 
+                                        | (o, BTyp, BTyp) when List.exists (fun x ->  x=o) bool_logic_operators -> BTyp 
                                         | _                      -> failwith("illegal/illtyped dyadic expression: " + f)
     
     /// Checks the inputs for a function or procedure
@@ -131,12 +137,14 @@ module TypeCheck =
                             | Do(gc) -> tcGC gtenv ltenv gc
                             | Call(f, es) -> tcNaryProcedure gtenv ltenv f es
     
+    /// Handle a function declaration; append its parameter and return types to the global environment,
+    /// and handle the inner environment as well.
     and tcFunDec gtenv topt f decs stm =
         // Start by creating the local environment; and append to the global environment
         // if we have a function (there's an output type), and not a procedure (no output type)
         let (ltenv,gtenv) = 
             match topt with
-            | None -> (Map.empty, Map.add (procedure_prefix + f) ITyp gtenv)
+            | None -> (enter_procedure Map.empty, Map.add (procedure_prefix + f) ITyp gtenv)
             | Some(typ) -> ( enter_function Map.empty typ, Map.add (return_prefix+f) typ gtenv)
         
         // Then type check declarations and the statement
