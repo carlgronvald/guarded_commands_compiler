@@ -3,13 +3,11 @@
 
 open GuardedCommands.Frontend.AST
 
-//TODO: CHECK FOR NAME CLASHES
-
 module TypeCheck = 
     let distinct list = list |> Set.ofList |> Set.toList
 
     let bool_logic_operators = ["&&";"=";"<>";"||"]
-    let int_logic_operators = ["<";">";"<=";">=";"<>"]
+    let int_logic_operators = ["<";">";"<=";">=";"<>";"="]
     let arithmetic_operators = ["+";"*";"/"]
     let binary_operators = bool_logic_operators @ int_logic_operators @ arithmetic_operators |> distinct
     let unary_int_operators = ["-"]
@@ -28,8 +26,14 @@ module TypeCheck =
     let function_parameter_name function_name (type_number:int) = function_name + " type " + (string)type_number
     let function_parameter_type gtenv function_name (type_number:int) =
         Map.tryFind (function_parameter_name function_name type_number) gtenv 
-    
 
+    /// Check if a function, procedure, or variable is already declared in the given environment
+    let check_exists name env =
+        if List.exists (fun n ->
+            Map.containsKey n env) [name;procedure_prefix+name;return_prefix+name]
+        then failwith ("Duplicate declaration of " + name)
+    
+    // TODO: Is accessing a global variable allowed in a function??
 
     /// tcE gtenv ltenv e gives the type for expression e on the basis of type environments gtenv and ltenv
     /// for global and local variables 
@@ -44,13 +48,13 @@ module TypeCheck =
             | Apply(f,[e1;e2]) when List.exists (fun x ->  x=f) binary_operators
                             -> tcDyadic gtenv ltenv f e1 e2   
 
-            | Apply(f, es) -> //Function call
+            | Apply(f, es) -> // Function call
                 tcNaryFunction gtenv ltenv f es
 
             | Addr(acc) -> 
                 tcA gtenv ltenv acc |> PTyp
 
-            | s                -> failwith (sprintf "tcE: not supported yet %A" s)
+            //| s                -> failwith (sprintf "tcE: not supported yet %A" s)
 
     and tcMonadic gtenv ltenv f e = match (f, tcE gtenv ltenv e) with
                                     | (o, ITyp) when List.exists (fun x -> x=o) unary_int_operators -> ITyp
@@ -61,13 +65,13 @@ module TypeCheck =
                                         | (o, ITyp, ITyp) when List.exists (fun x ->  x=o) arithmetic_operators -> ITyp
                                         | (o, ITyp, ITyp) when List.exists (fun x ->  x=o) int_logic_operators  -> BTyp
                                         | (o, BTyp, BTyp) when List.exists (fun x ->  x=o) bool_logic_operators -> BTyp 
-                                        | _                      -> failwith("illegal/illtyped dyadic expression: " + f)
+                                        | _                     -> failwith(sprintf "Illegal/illtyped dyadic expression %A %s %A" e1 f e2 )
     
     /// Checks the inputs for a function or procedure
     and tcFPInputs gtenv ltenv f es=
         let types = List.map (tcE gtenv ltenv) es
         
-        //Check the i'th type in the function input list
+        // Check the i'th type in the function input list
         let check_type i x =
             match function_parameter_type gtenv f i with
             | None -> failwith ("At least " + (string)(i+1) + " parameters were supplied for function or procedure " + f + ", but it only needs " + (string)(i))
@@ -75,8 +79,11 @@ module TypeCheck =
                 if typ = x then
                     ()
                 else failwith ("parameter " + (string)(i+1) + " for function or procedure " + f + " is of wrong type")
-
-        List.mapi check_type types  |> ignore
+        
+        match function_parameter_type gtenv f types.Length with
+        | None -> ()
+        | Some(_) -> failwith ("Function " + f + " was not supplied enough parameters! It got " + (string)types.Length + ", but needs more TODO:HOW MANY?")
+        List.mapi check_type types |> ignore
 
     and tcNaryFunction gtenv ltenv f es =
         let rtype = match Map.tryFind (return_prefix + f) gtenv with //Find the return type
@@ -109,11 +116,14 @@ module TypeCheck =
                 match (tcE gtenv ltenv e) with
                                           | ITyp -> ()
                                           | _ -> failwith ("Illegal variable indexing. Variables can only be indexed with integers.")
-                tcA gtenv ltenv acc
+                match tcA gtenv ltenv acc with
+                | ATyp(element_type, _) -> element_type
+                | _ -> failwith "Trying to index a non-array variable!"
+                
             | ADeref e       ->
                 match tcE gtenv ltenv e with
                 | PTyp(typ) -> typ
-                | _ -> failwith "We can only dereference a pointer"
+                | _ -> failwith "Only pointers can be dereferenced"
 
 
                                         //TODO: I don't understand how pointers work in this language
@@ -122,9 +132,12 @@ module TypeCheck =
     /// for global and local variables 
     and tcS gtenv ltenv = function                           
                             | PrintLn e -> tcE gtenv ltenv e |> ignore
-                            | Ass(acc,e) -> if tcA gtenv ltenv acc = tcE gtenv ltenv e 
-                                            then ()
-                                            else failwith "illtyped assignment"                                
+                            | Ass(acc,e) -> 
+                                let atyp = tcA gtenv ltenv acc
+                                let etyp = tcE gtenv ltenv e
+                                if atyp = etyp 
+                                then ()
+                                else failwith (sprintf "illtyped assignment %A = %A, %A=%A" acc e atyp etyp)                                
 
                             | Block([],stms) -> List.iter (tcS gtenv ltenv) stms
                             | Block(decs, stms) ->
@@ -171,9 +184,13 @@ module TypeCheck =
         gtenv
 
     /// Handles a single global declaration
-    and tcGDec gtenv =  function  
-                        | VarDec(t,s)               -> Map.add s t gtenv
-                        | FunDec(topt,f, decs, stm) -> tcFunDec gtenv topt f decs stm
+    and tcGDec gtenv = function
+                       | VarDec(t,s) -> 
+                           check_exists s gtenv
+                           Map.add s t gtenv
+                       | FunDec(topt,f, decs, stm) ->
+                           check_exists f gtenv
+                           tcFunDec gtenv topt f decs stm
 
     /// Handles a list of global declarations
     and tcGDecs gtenv = function
@@ -182,8 +199,10 @@ module TypeCheck =
 
     /// Handles a single local declaration
     and tcLDec gtenv (ltenv, local_types) = function
-                             | VarDec(t,s) -> (Map.add s t ltenv, local_types @ [t])
-                             | FunDec(topt, f, decs, stm) -> failwith "Local function declarations are not allowed"
+                                            | VarDec(t,s) -> 
+                                                check_exists s ltenv
+                                                Map.add s t ltenv, local_types @ [t]
+                                            | FunDec(_,_,_,_) -> failwith "Local function declarations are not allowed"
 
     /// Handles a list of local declarations
     /// 
