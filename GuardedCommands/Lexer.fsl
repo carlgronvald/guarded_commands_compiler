@@ -20,6 +20,9 @@ let keyword s =
     | "od"        -> OD     
     | "true"      -> BOOL(true) 
     | "false"     -> BOOL(false)
+    | "return"    -> RETURN
+    | "function"  -> FUNCTION
+    | "procedure" -> PROCEDURE
     | _           -> NAME s  
 }
 
@@ -56,11 +59,14 @@ rule tokenize =
   | "<>"        { NEQ }
   | "<"         { LT }
   | ">"         { GT }
-  | "<="        { LE } 
+  | "<="        { LE }
+  | ">="        { GE } 
   | "*"         { TIMES }
   | "-"         { MINUS }
   | "="         { EQ }
-  | "+"         { PLUS }   
+  | "+"         { PLUS }
+  | "/"         { DIV }
+  | "||"        { OR }
   | identifier  { keyword(Encoding.UTF8.GetString(lexbuf.Lexeme)) }
   | eof         { EOF }
 
