@@ -8,7 +8,7 @@ open GuardedCommands.Frontend.AST
 %token <string> NAME
 %token ITYP BTYP
 %token LP LCP LSP RP RCP RSP
-%token IF FI DO OD BEGIN END RETURN FUNCTION PROCEDURE
+%token IF FI DO OD BEGIN END RETURN FUNCTION PROCEDURE ADDR DEREF
 %token COMMA COLON SEMI BAR TO
 %token NEG PLUS MINUS TIMES AND OR EQ LE GE LT GT NEQ DIV
 %token PRINT ASG SKIP ABORT
@@ -16,7 +16,7 @@ open GuardedCommands.Frontend.AST
 %token HIGH
 
 %left AND OR
-%nonassoc NEG
+%nonassoc NEG ADDR DEREF
 %left EQ LE GE LT GT NEQ
 %left PLUS MINUS 
 %left TIMES DIV
@@ -54,6 +54,7 @@ Dec:
     | FUNCTION  NAME LP DecL RP COLON Typ EQ Stm {FunDec(Some $7, $2, $4, $9)}
     | PROCEDURE NAME LP DecL RP EQ Stm           {FunDec(None, $2, $4, $7)}
 
+
 DecL: 
                                       { [] }
    | DecList                          { $1 }
@@ -64,13 +65,16 @@ DecList:
 
 Access:
     NAME                              { AVar $1 }
+    | DEREF Exp                       { ADeref $2}
+    
       
 Stm:
     PRINT Exp                         { PrintLn $2 }
   | Access ASG Exp                    { Ass($1,$3)  }
   | SKIP                              { Do (GC []) }
   | ABORT                             { Alt (GC []) } 
-  | LCP StmL  RCP                     { Block([], $2) } 
+  | LCP StmL RCP                      { Block([], $2) }
+  | LCP DecL SEMI StmL RCP            { Block($2, $4) } 
   | IF GuardedCommand FI              { Alt $2 }
   | DO GuardedCommand OD              { Do $2  }
   | RETURN Exp                        { Return (Some $2) }
@@ -93,7 +97,8 @@ GCList:
   | Exp TO StmL BAR GCList	   		    { ($1,$3)::$5 }
 
 Exp:
-    Access                            { Access $1 }
+   Access                             { Access $1 }
+  | ADDR Access                       { Addr $2}
   | NAME LP ExpL RP                   { Apply($1, $3) }
   | INT                               { N $1 }
   | BOOL                              { B $1 }       
