@@ -113,7 +113,7 @@ module CodeGeneration =
     and CA vEnv fEnv = function | AVar x ->
                                     match Map.find x (fst vEnv) with
                                     | (GloVar addr,_) -> [CSTI addr]
-                                    | (LocVar addr,_) -> [GETBP; CSTI (addr-1); ADD]
+                                    | (LocVar addr,_) -> [GETBP; CSTI (addr); ADD]
                                 | AIndex(acc, e) -> (CE vEnv fEnv e) @ (CA vEnv fEnv acc) @ [ADD]
                                 | ADeref(e) -> CE vEnv fEnv e
  
@@ -151,7 +151,7 @@ module CodeGeneration =
                 | Some(exp) -> (CE vEnv fEnv exp, [])
             let stack_frame_size = snd vEnv 
 
-            first_instructions @ [RET (stack_frame_size-1)] @ last_instructions
+            first_instructions @ [RET (stack_frame_size)] @ last_instructions
 
         | Call(f, expressions) ->
             function_call vEnv fEnv f expressions
@@ -195,12 +195,13 @@ module CodeGeneration =
                   let lab = newLabel()
                   let parameters = generateParamDecs xs
                   let fEnv = Map.add f (lab, tyOpt, generateParamDecs xs) fEnv
-                  
+                  let types, offset = vEnv
+
                   let (vEnv_inner, _) = 
                       List.fold (fun (variable_environment, instructions) x ->
-                          let (v2,i2) = allocate LocVar (x) vEnv
+                          let (v2,i2) = allocate LocVar (x) variable_environment
                           (v2, instructions@i2)
-                      ) ((Map.empty,0), []) parameters 
+                      ) ((types,0), []) parameters 
 
                     
                   let (vEnv2, fEnv2, var_code_2, fun_code_2) = addv decr vEnv fEnv 
