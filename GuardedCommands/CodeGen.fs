@@ -104,6 +104,7 @@ module CodeGeneration =
                      CE vEnv fEnv e1 @ CE vEnv fEnv e2 @ [LT]
         | Apply(function_name, es) ->
             function_call vEnv fEnv function_name es
+        | Addr acc -> CA vEnv fEnv acc
         | _            -> failwith "CE: not supported yet"
         
  /// CA vEnv fEnv acc gives the code for an access acc on the basis of a variable and a function environment
