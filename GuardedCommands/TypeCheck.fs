@@ -160,7 +160,7 @@ module TypeCheck =
                             | Alt(gc) -> tcGC gtenv ltenv gc
                             | Do(gc) -> tcGC gtenv ltenv gc
                             | Call(f, es) -> tcNaryProcedure gtenv ltenv f es
-    
+
     /// Handle a function declaration; append its parameter and return types to the global environment,
     /// and handle the inner environment as well.
     and tcFunDec gtenv topt f decs stm =
@@ -180,7 +180,7 @@ module TypeCheck =
             |> List.fold (fun s (name,typ) -> Map.add name typ s) gtenv
 
         // Type check the insides of the function
-        tcS gtenv ltenv stm
+        tcS gtenv ltenv stm // TODO: Check if all paths return a value, or if there even is a return statement inside
         gtenv
 
     /// Handles a single global declaration

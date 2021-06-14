@@ -185,12 +185,12 @@ module CodeGeneration =
         // then goes on to the next declaration in the list.
         let rec addv decs vEnv fEnv = 
             match decs with 
-            | []         -> (vEnv, fEnv, [])
+            | []         -> (vEnv, fEnv, [], [])
             | dec::decr  -> 
               match dec with
               | VarDec (typ, var) -> let (vEnv1, code1) = allocate GloVar (typ, var) vEnv
-                                     let (vEnv2, fEnv2, code2) = addv decr vEnv1 fEnv
-                                     (vEnv2, fEnv2, code1 @ code2)
+                                     let (vEnv2, fEnv2, var_code_2, fun_code_2) = addv decr vEnv1 fEnv
+                                     (vEnv2, fEnv2, code1 @var_code_2, fun_code_2)
               | FunDec (tyOpt, f, xs, body) -> 
                   let lab = newLabel()
                   let parameters = generateParamDecs xs
@@ -203,16 +203,16 @@ module CodeGeneration =
                       ) ((Map.empty,0), []) parameters 
 
                     
-                  let (vEnv2, fEnv2, code2) = addv decr vEnv fEnv 
+                  let (vEnv2, fEnv2, var_code_2, fun_code_2) = addv decr vEnv fEnv 
                   // TODO: figure out how to get the base pointer for when we access local variables.
-                  vEnv2, fEnv2, [Label lab] @ CS vEnv_inner fEnv body @ [RET xs.Length] @ code2
+                  vEnv2, fEnv2, var_code_2, [Label lab] @ CS vEnv_inner fEnv body @ [RET xs.Length] @ fun_code_2
         addv decs (Map.empty, 0) Map.empty
  
  /// CP prog gives the code for a program prog
     let CP (P(decs,stms)) = 
         let _ = resetLabels ()
-        let ((gvM,_) as gvEnv, fEnv, initCode) = makeGlobalEnvs decs
-        initCode @ CSs gvEnv fEnv stms @ [STOP]     
+        let ((gvM,_) as gvEnv, fEnv, var_code, fun_code) = makeGlobalEnvs decs
+        var_code @ CSs gvEnv fEnv stms @ [STOP] @ fun_code
  
  
  
