@@ -109,16 +109,16 @@ module CodeGeneration =
  /// CA vEnv fEnv acc gives the code for an access acc on the basis of a variable and a function environment
  ///
  /// CA = Code (generation for an) Access
-    and CA vEnv fEnv = function | AVar x -> match Map.find x (fst vEnv) with
-                                            | (GloVar addr,_) -> [CSTI addr]
-                                            | (LocVar addr,_) -> 
-                                                [GETBP; CSTI addr; ADD]
+    and CA vEnv fEnv = function | AVar x ->
+                                    match Map.find x (fst vEnv) with
+                                    | (GloVar addr,_) -> [CSTI addr]
+                                    | (LocVar addr,_) -> [GETBP; CSTI addr; ADD]
                                 // TODO: Need to deref somewhere? Arrays are essentially just pointers
-                                | AIndex(acc, (N(index))) -> match Map.find (acc+index) (fst vEnv) with
-                                            | (GloVar addr,_) -> [CSTI addr]
-                                            | (LocVar addr,_) -> 
-                                                [GETBP; CSTI addr; ADD]
-                                | AIndex(acc, _) -> failwith "CA: Cannot access array elements with non-integer expressions"
+                                | AIndex((AVar(x)), (N(index))) ->
+                                        match Map.find x (fst vEnv) with
+                                        | (GloVar addr,_) -> [CSTI (addr+index)]
+                                        | (LocVar addr,_) -> [GETBP; CSTI (addr+index); ADD]
+                                | AIndex(_, _) -> failwith "CA: Cannot access array elements with non-integer expressions"
                                         // TODO: what derefs here? is it a pointer to a point on the stack?
                                 | ADeref e       -> failwith "CA: pointer dereferencing not supported yet"
  
