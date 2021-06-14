@@ -24,6 +24,26 @@ module CodeGenerationOpt =
    type ParamDecs = (Typ * string) list
    type funEnv = Map<string, label * Typ option * ParamDecs>
 
+   //define the expression signal here
+   let simple_binary_expressions = ["+";"*";"/";
+       "<";">";"<=";">=";
+       "<>";"="]
+
+   let rec binary_expression_bytecode =
+        function
+        | "+"  -> [ADD]
+        | "*"  -> [MUL]
+        | "/" -> [DIV]
+
+        | "<" -> [LT]
+        | ">" -> [SWAP; LT]
+        | ">=" -> [LT;NOT]
+        | "<=" -> SWAP::(binary_expression_bytecode ">=")
+
+        | "<>" -> [EQ;NOT]
+        | "="  -> [EQ]
+        | s -> failwith ("Binary expression " + s + " not supported")
+
 
 (* Directly copied from Peter Sestoft   START  
    Code-generating functions that perform local optimizations *)
@@ -99,15 +119,16 @@ module CodeGenerationOpt =
 (* ------------------------------------------------------------------- *)
 
 (* End code directly copied from Peter Sestoft *)
+
 /// CE e vEnv fEnv k gives the code for an expression e on the basis of a variable and a function environment and continuation k
    let rec CE e vEnv fEnv k = 
        match e with
        | N n          -> addCST n k
        | B b          -> addCST (if b then 1 else 0) k
        | Access acc  -> CA acc vEnv fEnv (LDI :: k) 
-
        | Apply("-",[e]) -> CE e vEnv fEnv (addCST 0 (SWAP:: SUB :: k))
-
+       //add "!"
+       | Apply("!", [e]) -> CE vEnv fEnv e (NOT::k)
        | Apply("&&",[b1;b2]) -> 
                 match k with
                 | IFZERO lab :: _ -> CE b1 vEnv fEnv (IFZERO lab :: CE b2 vEnv fEnv k)
@@ -118,15 +139,43 @@ module CodeGenerationOpt =
                 | _ ->  let (jumpend,  k1) = makeJump k
                         let (labfalse, k2) = addLabel (addCST 0 k1)
                         CE b1 vEnv fEnv (IFZERO labfalse :: CE b2 vEnv fEnv (addJump jumpend k2))
+       //add "||"
+       // not compeleted!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+       | Apply("||",[b1;b2]) ->
+                match k with
+                | IFZERO lab :: _ -> CE b1 vEnv fEnv (IFZERO lab :: CE b2 vEnv fEnv k)
+                | IFNZRO labthen :: k1 -> 
+                        let (labelse, k2) = addLabel k1
+                        CE b1 vEnv fEnv
+                             (IFZERO labelse :: CE b2 vEnv fEnv (IFNZRO labthen :: k2))
+                | _ ->  let (jumpend,  k1) = makeJump k
+                        let (labfalse, k2) = addLabel (addCST 0 k1)
+                        CE b1 vEnv fEnv (IFZERO labfalse :: CE b2 vEnv fEnv (addJump jumpend k2))
+        
 
-       | Apply(o,[e1;e2])  when List.exists (fun x -> o=x) ["+"; "*"; "="]
+       //| Apply(o,[e1;e2])  when List.exists (fun x -> o=x) ["+"; "*"; "="]
+       //                   -> let ins = match o with
+       //                                | "+"  -> ADD::k
+       //                                | "*"  -> MUL::k
+       //                                | "="  -> EQ::k
+       //                                | _    -> failwith "CE: this case is not possible"
+       //                      CE e1 vEnv fEnv (CE e2 vEnv fEnv ins) 
+       | Apply(o,[e1;e2])  when List.exists (fun x -> o=x) simple_binary_expressions
                           -> let ins = match o with
                                        | "+"  -> ADD::k
                                        | "*"  -> MUL::k
+                                       | "/" -> DIV::k
+                                       | "-" -> SUB::k
+
+                                       | "<" -> LT::k
+                                       | ">" -> SWAP:: LT::k
+                                       | ">=" -> LT::NOT::k
+                                       | "<=" -> SWAP::LT::NOT ::k
+
+                                       | "<>" -> EQ::NOT::k
                                        | "="  -> EQ::k
                                        | _    -> failwith "CE: this case is not possible"
                              CE e1 vEnv fEnv (CE e2 vEnv fEnv ins) 
-
        | _                -> failwith "CE: not supported yet"
        
    and CEs es vEnv fEnv k = 
@@ -149,7 +198,10 @@ module CodeGenerationOpt =
     let (env, fdepth) = vEnv 
     match typ with
     | ATyp (ATyp _, _) -> failwith "allocate: array of arrays not permitted"
-    | ATyp (t, Some i) -> failwith "allocate: array not supported yet"
+    | ATyp (t, Some i) ->
+        let newEnv = (Map.add x (kind fdepth, typ) env, fdepth+i)
+        let code = [INCSP i]
+        (newEnv, code)
     | _ -> 
       let newEnv = (Map.add x (kind fdepth, typ) env, fdepth+1)
       let code = [INCSP 1]
