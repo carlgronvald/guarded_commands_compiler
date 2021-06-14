@@ -113,7 +113,7 @@ module CodeGeneration =
     and CA vEnv fEnv = function | AVar x ->
                                     match Map.find x (fst vEnv) with
                                     | (GloVar addr,_) -> [CSTI addr]
-                                    | (LocVar addr,_) -> [GETBP; CSTI addr; ADD]
+                                    | (LocVar addr,_) -> [GETBP; CSTI (addr-1); ADD]
                                 | AIndex(acc, e) -> (CE vEnv fEnv e) @ (CA vEnv fEnv acc) @ [ADD]
                                 | ADeref(e) -> CE vEnv fEnv e
  
