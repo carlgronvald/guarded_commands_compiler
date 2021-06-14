@@ -34,6 +34,21 @@ module TypeCheck =
         then failwith ("Duplicate declaration of " + name)
     
     // TODO: Is accessing a global variable allowed in a function??
+    /// Checks whether all paths through a statement end in a return
+    let rec returning_statement = function
+        | PrintLn _ -> false
+        | Ass _ -> false
+        | Return _ -> true
+        | Alt(gc) -> returning_gc gc
+        | Do(gc) -> returning_gc gc
+        | Block(_, stms) -> List.exists returning_statement stms
+        | Call _ -> false
+
+    /// Checks whether all paths through a GC end in a return
+    and returning_gc (GC(ls)) =
+        let gc_path_returns = List.exists (fun stm -> returning_statement stm)
+        // Check that all paths return a value by checking that no paths do not return a value
+        List.exists (fun (_, stms) -> not (gc_path_returns stms)) ls |> not
 
     /// tcE gtenv ltenv e gives the type for expression e on the basis of type environments gtenv and ltenv
     /// for global and local variables 
@@ -165,7 +180,12 @@ module TypeCheck =
     /// Handle a function declaration; append its parameter and return types to the global environment,
     /// and handle the inner environment as well.
     and tcFunDec gtenv topt f decs stm =
-        // Start by creating the local environment; and append to the global environment
+        // Check that if we're dealing with a function, all paths return a value
+        match topt with
+        | Some(_) when not (returning_statement stm) -> failwith ("Not all paths through function " + f + " have a return value!")
+        | _ -> ()
+
+        // Create the local environment; and append to the global environment
         // if we have a function (there's an output type), and not a procedure (no output type)
         let (ltenv,gtenv) = 
             match topt with
