@@ -153,8 +153,8 @@ module TypeCheck =
 
                             | Block([],stms) -> List.iter (tcS gtenv ltenv) stms
                             | Block(decs, stms) ->
-                                if List.length decs > 0 then failwith "Inner local declarations are currently disallowed!" 
-                                //let (ltenv,_) = tcLDecs gtenv (ltenv, []) decs
+                                //if List.length decs > 0 then failwith "Inner local declarations are currently disallowed!" 
+                                let (ltenv,_) = tcLDecs gtenv (ltenv, []) decs
                                 List.iter (tcS gtenv ltenv) stms
 
                             | Return(expopt) ->

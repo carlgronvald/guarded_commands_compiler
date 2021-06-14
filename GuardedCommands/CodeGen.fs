@@ -130,12 +130,14 @@ module CodeGeneration =
  
         | Block([],stms) ->   CSs vEnv fEnv stms
         | Block(declarations, stms) ->
-            let (vEnv, dec_instructions) =
-                List.fold (fun (env,instrs) t ->
+            let (vEnv, dec_instructions, dealloc_instructions) =
+                List.fold (fun (env,instrs, dealloc_instrs) t ->
                     let (env, instrs2) = modify_local_environment env t
-                    (env, instrs @ instrs2)
-                ) (vEnv, []) declarations
-            dec_instructions @ CSs vEnv fEnv stms
+                    let dealloc_instrs2 = [INCSP -1]
+                    (env, instrs @ instrs2, dealloc_instrs @ dealloc_instrs2)
+                ) (vEnv, [], []) declarations
+            
+            dec_instructions @ CSs vEnv fEnv stms @ dealloc_instructions
 
         | Alt(gc) -> 
             let outer_label = newLabel()
