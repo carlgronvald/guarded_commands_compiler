@@ -51,7 +51,7 @@ module TypeCheck =
             | Apply(f, es) -> // Function call
                 tcNaryFunction gtenv ltenv f es
 
-            | Addr(acc) -> 
+            | Addr(acc) ->
                 tcA gtenv ltenv acc |> PTyp
 
             //| s                -> failwith (sprintf "tcE: not supported yet %A" s)
@@ -103,7 +103,7 @@ module TypeCheck =
 
         ()
 
-    /// tcA gtenv ltenv e gives the type for access acc on the basis of type environments gtenv and ltenv
+    /// tcA gtenv ltenv acc gives the type for access acc on the basis of type environments gtenv and ltenv
     /// for global and local variables 
     and tcA gtenv ltenv = 
             function 
