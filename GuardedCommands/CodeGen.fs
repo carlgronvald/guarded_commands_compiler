@@ -109,14 +109,12 @@ module CodeGeneration =
  /// CA vEnv fEnv acc gives the code for an access acc on the basis of a variable and a function environment
  ///
  /// CA = Code (generation for an) Access
-    and CA vEnv fEnv = function | AVar x -> match Map.find x (fst vEnv) with
-                                            | (GloVar addr,_) -> [CSTI addr]
-                                            | (LocVar addr,_) -> 
-                                                [GETBP; CSTI addr; ADD]
-                                | AIndex(acc, e) -> failwith "CA: array indexing not supported yet"
-
-                                // TODO: what derefs here? is it a pointer to a point on the stack?
-                                | ADeref e       -> failwith "CA: pointer dereferencing not supported yet"
+    and CA vEnv fEnv = function | AVar x ->
+                                    match Map.find x (fst vEnv) with
+                                    | (GloVar addr,_) -> [CSTI addr]
+                                    | (LocVar addr,_) -> [GETBP; CSTI addr; ADD]
+                                | AIndex(acc, e) -> (CE vEnv fEnv e) @ (CA vEnv fEnv acc) @ [ADD]
+                                | ADeref(e) -> CE vEnv fEnv e
  
    
  
