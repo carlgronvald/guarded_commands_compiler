@@ -8,7 +8,7 @@ module TypeCheck =
 
     let bool_logic_operators = ["&&";"=";"<>";"||"]
     let int_logic_operators = ["<";">";"<=";">=";"<>";"="]
-    let arithmetic_operators = ["+";"*";"/"]
+    let arithmetic_operators = ["+";"*";"/";"-"] //TODO: BINARY MINUS OPERATORY
     let binary_operators = bool_logic_operators @ int_logic_operators @ arithmetic_operators |> distinct
     let unary_int_operators = ["-"]
     let unary_bool_operators = ["!"]
@@ -140,9 +140,6 @@ module TypeCheck =
                 | PTyp(typ) -> typ
                 | _ -> failwith "Only pointers can be dereferenced"
 
-
-                                        //TODO: I don't understand how pointers work in this language
-
     /// tcS gtenv ltenv s checks the well-typeness of a statement s on the basis of type environments gtenv and ltenv
     /// for global and local variables 
     and tcS gtenv ltenv = function                           
@@ -201,7 +198,7 @@ module TypeCheck =
             |> List.fold (fun s (name,typ) -> Map.add name typ s) gtenv
 
         // Type check the insides of the function
-        tcS gtenv ltenv stm // TODO: Check if all paths return a value, or if there even is a return statement inside
+        tcS gtenv ltenv stm
         gtenv
 
     /// Handles a single global declaration

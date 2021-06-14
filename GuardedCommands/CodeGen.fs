@@ -23,7 +23,7 @@ module CodeGeneration =
     type ParamDecs = (Typ * string) list
     type funEnv = Map<string, label * Typ option * ParamDecs>
 
-    let simple_binary_expressions = ["+";"*";"/";
+    let simple_binary_expressions = ["+";"*";"/";"-";
         "<";">";"<=";">=";
         "<>";"="]
 
@@ -33,6 +33,7 @@ module CodeGeneration =
         | "+"  -> [ADD]
         | "*"  -> [MUL]
         | "/" -> [DIV]
+        | "-" -> [SUB]
 
         | "<" -> [LT]
         | ">" -> [SWAP; LT]
