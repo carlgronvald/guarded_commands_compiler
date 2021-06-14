@@ -113,14 +113,8 @@ module CodeGeneration =
                                     match Map.find x (fst vEnv) with
                                     | (GloVar addr,_) -> [CSTI addr]
                                     | (LocVar addr,_) -> [GETBP; CSTI addr; ADD]
-                                // TODO: Need to deref somewhere? Arrays are essentially just pointers
-                                | AIndex((AVar(x)), (N(index))) ->
-                                        match Map.find x (fst vEnv) with
-                                        | (GloVar addr,_) -> [CSTI (addr+index)]
-                                        | (LocVar addr,_) -> [GETBP; CSTI (addr+index); ADD]
-                                | AIndex(_, _) -> failwith "CA: Cannot access array elements with non-integer expressions"
-                                        // TODO: what derefs here? is it a pointer to a point on the stack?
-                                | ADeref e       -> failwith "CA: pointer dereferencing not supported yet"
+                                | AIndex(acc, e) -> (CE vEnv fEnv e) @ (CA vEnv fEnv acc) @ [ADD]
+                                | ADeref(e) -> CE vEnv fEnv e
  
    
  
