@@ -151,7 +151,7 @@ module CodeGeneration =
                 | Some(exp) -> (CE vEnv fEnv exp, [])
             let stack_frame_size = snd vEnv 
 
-            first_instructions @ [RET stack_frame_size] @ last_instructions
+            first_instructions @ [RET (stack_frame_size-1)] @ last_instructions
 
         | Call(f, expressions) ->
             function_call vEnv fEnv f expressions
@@ -205,7 +205,11 @@ module CodeGeneration =
                     
                   let (vEnv2, fEnv2, var_code_2, fun_code_2) = addv decr vEnv fEnv 
                   // TODO: figure out how to get the base pointer for when we access local variables.
-                  vEnv2, fEnv2, var_code_2, [Label lab] @ CS vEnv_inner fEnv body @ [RET xs.Length] @ fun_code_2
+                  let rcode = match tyOpt with
+                              | None -> [RET xs.Length]
+                              | Some(_) -> []
+
+                  vEnv2, fEnv2, var_code_2, [Label lab] @ CS vEnv_inner fEnv body @ rcode @ fun_code_2
         addv decs (Map.empty, 0) Map.empty
  
  /// CP prog gives the code for a program prog
