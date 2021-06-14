@@ -122,6 +122,20 @@ let type_checking_tree_6 =
             )
         ])
 
+/// Check that all paths must return a value
+let type_failing_tree_7 =
+    P(
+        [FunDec(Some ITyp, "f", [], PrintLn (Exp.N 2))],
+        [PrintLn ( Apply ("f", []) )]
+    )
+
+/// Check that when all paths return a value, it type checks
+let type_checking_tree_7 =
+    P(
+        [FunDec(Some ITyp, "f", [], Block([], [PrintLn (Exp.N 2); Return (Some (Exp.N 3))]))],
+        [PrintLn ( Apply ("f", []) )]
+    )
+
 let test_failing_program program name=
     let mutable failed = true
     try
@@ -188,11 +202,14 @@ let test () =
     test_passing_program type_checking_tree_4 "4"
     test_passing_program type_checking_tree_5 "5"
     test_passing_program type_checking_tree_6 "6"
+    test_passing_program type_checking_tree_7 "7"
     test_failing_program type_failing_tree_1 "1"
-    test_failing_program type_failing_tree_2 "1"
+    test_failing_program type_failing_tree_2 "2"
     test_failing_program type_failing_tree_3 "3"
     test_failing_program type_failing_tree_4 "4"
     test_failing_program type_failing_tree_5 "5"
     test_failing_program type_failing_tree_6 "6"
+    test_failing_program type_failing_tree_7 "7"
+
 
 test()
