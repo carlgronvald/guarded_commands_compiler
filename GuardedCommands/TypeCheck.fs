@@ -199,8 +199,8 @@ module TypeCheck =
         
         // Create and prepare the local environment for entry
         let ltenv = match topt with
-            | None -> enter_procedure Map.empty
-            | Some(typ) -> enter_function Map.empty typ
+                    | None -> enter_procedure Map.empty
+                    | Some(typ) -> enter_function Map.empty typ
 
         // Then type check declarations
         let (ltenv, _) = tcLDecs gtenv (ltenv, []) decs

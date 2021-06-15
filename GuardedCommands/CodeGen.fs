@@ -219,7 +219,7 @@ module CodeGeneration =
                   let (vEnv2, fEnv2, var_code_2, fun_code_2) = addv decr vEnv fEnv 
 
                   let rcode = match tyOpt with
-                              | None -> [RET xs.Length]
+                              | None -> [RET 0]
                               | Some(_) -> []
 
                   vEnv2, fEnv2, var_code_2, [Label lab] @ CS vEnv_inner fEnv body @ rcode @ fun_code_2
