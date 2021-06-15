@@ -174,6 +174,21 @@ module TypeCheck =
                             | Do(gc) -> tcGC gtenv ltenv gc
                             | Call(f, es) -> tcNaryProcedure gtenv ltenv f es
 
+    /// Handles preparing for function declarations.
+    and tcFunDecOuter gtenv topt f decs stm =
+        // Append to the global environment
+        let gtenv = 
+            match topt with
+            | None -> Map.add (procedure_prefix + f) ITyp gtenv
+            | Some(typ) -> Map.add (return_prefix + f) typ gtenv
+
+        let (_, types) = tcLDecs gtenv (Map.empty, []) decs //TODO maybe split tcLDecs
+        // Add function input types to the global environment so we can type check them later
+        let gtenv = 
+            List.mapi (fun i x -> ((function_parameter_name f i),x)) types
+            |> List.fold (fun s (name,typ) -> Map.add name typ s) gtenv
+        gtenv
+        
     /// Handle a function declaration; append its parameter and return types to the global environment,
     /// and handle the inner environment as well.
     and tcFunDec gtenv topt f decs stm =
@@ -181,21 +196,14 @@ module TypeCheck =
         match topt with
         | Some(_) when not (returning_statement stm) -> failwith ("Not all paths through function " + f + " have a return value!")
         | _ -> ()
-
-        // Create the local environment; and append to the global environment
-        // if we have a function (there's an output type), and not a procedure (no output type)
-        let (ltenv,gtenv) = 
-            match topt with
-            | None -> (enter_procedure Map.empty, Map.add (procedure_prefix + f) ITyp gtenv)
-            | Some(typ) -> ( enter_function Map.empty typ, Map.add (return_prefix+f) typ gtenv)
         
-        // Then type check declarations and the statement
-        let (ltenv, types) = tcLDecs gtenv (ltenv, []) decs
+        // Create and prepare the local environment for entry
+        let ltenv = match topt with
+                    | None -> enter_procedure Map.empty
+                    | Some(typ) -> enter_function Map.empty typ
 
-        // Add function input types to the global environment so we can type check them later
-        let gtenv = 
-            List.mapi (fun i x -> ((function_parameter_name f i),x)) types
-            |> List.fold (fun s (name,typ) -> Map.add name typ s) gtenv
+        // Then type check declarations
+        let (ltenv, _) = tcLDecs gtenv (ltenv, []) decs
 
         // Type check the insides of the function
         tcS gtenv ltenv stm
@@ -207,12 +215,23 @@ module TypeCheck =
                            check_exists s gtenv
                            Map.add s t gtenv
                        | FunDec(topt,f, decs, stm) ->
-                           check_exists f gtenv
                            tcFunDec gtenv topt f decs stm
 
     /// Handles a list of global declarations
     and tcGDecs gtenv = function
                         | dec::decs -> tcGDecs (tcGDec gtenv dec) decs
+                        | _         -> gtenv
+
+    /// Handles a single global declaration
+    and tcPreDec gtenv = function
+                        | VarDec _-> gtenv
+                        | FunDec(topt,f, decs, stm) ->
+                            check_exists f gtenv
+                            tcFunDecOuter gtenv topt f decs stm
+
+    /// Handles a list of global declarations
+    and tcPreDecs gtenv = function
+                        | dec::decs -> tcPreDecs (tcPreDec gtenv dec) decs
                         | _         -> gtenv
 
     /// Handles a single local declaration
@@ -238,7 +257,9 @@ module TypeCheck =
             ) ls
 
     /// tcP prog checks the well-typeness of a program prog
-    and tcP(P(decs, stms)) = let gtenv = tcGDecs Map.empty decs
-                             List.iter (tcS gtenv Map.empty) stms
+    and tcP(P(decs, stms)) = 
+        let gtenv = tcPreDecs Map.empty decs
+        let gtenv = tcGDecs gtenv decs
+        List.iter (tcS gtenv Map.empty) stms
 
   
