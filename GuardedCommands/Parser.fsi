@@ -12,22 +12,30 @@ type token =
   | MINUS
   | TIMES
   | AND
+  | OR
   | EQ
   | LE
+  | GE
   | LT
   | GT
   | NEQ
+  | DIV
   | COMMA
   | COLON
   | SEMI
   | BAR
   | TO
+  | DEREF
   | IF
   | FI
   | DO
   | OD
   | BEGIN
   | END
+  | RETURN
+  | FUNCTION
+  | PROCEDURE
+  | ADDR
   | LP
   | LCP
   | LSP
@@ -52,22 +60,30 @@ type tokenId =
     | TOKEN_MINUS
     | TOKEN_TIMES
     | TOKEN_AND
+    | TOKEN_OR
     | TOKEN_EQ
     | TOKEN_LE
+    | TOKEN_GE
     | TOKEN_LT
     | TOKEN_GT
     | TOKEN_NEQ
+    | TOKEN_DIV
     | TOKEN_COMMA
     | TOKEN_COLON
     | TOKEN_SEMI
     | TOKEN_BAR
     | TOKEN_TO
+    | TOKEN_DEREF
     | TOKEN_IF
     | TOKEN_FI
     | TOKEN_DO
     | TOKEN_OD
     | TOKEN_BEGIN
     | TOKEN_END
+    | TOKEN_RETURN
+    | TOKEN_FUNCTION
+    | TOKEN_PROCEDURE
+    | TOKEN_ADDR
     | TOKEN_LP
     | TOKEN_LCP
     | TOKEN_LSP
@@ -99,6 +115,8 @@ type nonTerminalId =
     | NONTERM_GuardedCommand
     | NONTERM_GCList
     | NONTERM_Exp
+    | NONTERM_ExpL
+    | NONTERM_ExpList
 /// This function maps tokens to integer indexes
 val tagOfToken: token -> int
 
