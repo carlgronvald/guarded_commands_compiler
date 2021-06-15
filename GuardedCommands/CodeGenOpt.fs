@@ -25,24 +25,7 @@ module CodeGenerationOpt =
    type funEnv = Map<string, label * Typ option * ParamDecs>
 
    //define the expression signal here
-   let simple_binary_expressions = ["+";"*";"/";
-       "<";">";"<=";">=";
-       "<>";"="]
 
-   let rec binary_expression_bytecode =
-        function
-        | "+"  -> [ADD]
-        | "*"  -> [MUL]
-        | "/" -> [DIV]
-
-        | "<" -> [LT]
-        | ">" -> [SWAP; LT]
-        | ">=" -> [LT;NOT]
-        | "<=" -> SWAP::(binary_expression_bytecode ">=")
-
-        | "<>" -> [EQ;NOT]
-        | "="  -> [EQ]
-        | s -> failwith ("Binary expression " + s + " not supported")
 
 
 (* Directly copied from Peter Sestoft   START  
@@ -126,16 +109,20 @@ module CodeGenerationOpt =
        | N n          -> addCST n k
        | B b          -> addCST (if b then 1 else 0) k
        | Access acc  -> CA acc vEnv fEnv (LDI :: k) 
+       // negative 
        | Apply("-",[e]) -> CE e vEnv fEnv (addCST 0 (SWAP:: SUB :: k))
        //add "!"
-       | Apply("!", [e]) -> CE vEnv fEnv e (NOT::k)
+       | Apply("!", [e]) -> CE e vEnv fEnv (addNOT (k))
        | Apply("&&",[b1;b2]) -> 
                 match k with
+                //  "if(b1&&b2)"
                 | IFZERO lab :: _ -> CE b1 vEnv fEnv (IFZERO lab :: CE b2 vEnv fEnv k)
+                //   "while(b1&&b2)
                 | IFNZRO labthen :: k1 -> 
                         let (labelse, k2) = addLabel k1
                         CE b1 vEnv fEnv
                              (IFZERO labelse :: CE b2 vEnv fEnv (IFNZRO labthen :: k2))
+                // x = b1&&b2
                 | _ ->  let (jumpend,  k1) = makeJump k
                         let (labfalse, k2) = addLabel (addCST 0 k1)
                         CE b1 vEnv fEnv (IFZERO labfalse :: CE b2 vEnv fEnv (addJump jumpend k2))
@@ -143,24 +130,18 @@ module CodeGenerationOpt =
        // not compeleted!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
        | Apply("||",[b1;b2]) ->
                 match k with
-                | IFZERO lab :: _ -> CE b1 vEnv fEnv (IFZERO lab :: CE b2 vEnv fEnv k)
-                | IFNZRO labthen :: k1 -> 
-                        let (labelse, k2) = addLabel k1
-                        CE b1 vEnv fEnv
-                             (IFZERO labelse :: CE b2 vEnv fEnv (IFNZRO labthen :: k2))
+                 //  "if(b1||b2)"
+                | IFNZRO lab :: _ -> CE b1 vEnv fEnv (IFNZRO lab :: CE b2 vEnv fEnv k)
+                //| IFNZRO labthen :: k1 -> 
+                //        let (labelse, k2) = addLabel k1
+                //        CE b1 vEnv fEnv
+                //             (IFZERO labelse :: CE b2 vEnv fEnv (IFNZRO labthen :: k2))
                 | _ ->  let (jumpend,  k1) = makeJump k
                         let (labfalse, k2) = addLabel (addCST 0 k1)
                         CE b1 vEnv fEnv (IFZERO labfalse :: CE b2 vEnv fEnv (addJump jumpend k2))
         
-
-       //| Apply(o,[e1;e2])  when List.exists (fun x -> o=x) ["+"; "*"; "="]
-       //                   -> let ins = match o with
-       //                                | "+"  -> ADD::k
-       //                                | "*"  -> MUL::k
-       //                                | "="  -> EQ::k
-       //                                | _    -> failwith "CE: this case is not possible"
-       //                      CE e1 vEnv fEnv (CE e2 vEnv fEnv ins) 
-       | Apply(o,[e1;e2])  when List.exists (fun x -> o=x) simple_binary_expressions
+       //add operation case 
+       | Apply(o,[e1;e2])  when List.exists (fun x -> o=x) ["+";"*";"/";"<";">";"<=";">=";"<>";"="]
                           -> let ins = match o with
                                        | "+"  -> ADD::k
                                        | "*"  -> MUL::k
@@ -169,12 +150,12 @@ module CodeGenerationOpt =
 
                                        | "<" -> LT::k
                                        | ">" -> SWAP:: LT::k
-                                       | ">=" -> LT::NOT::k
-                                       | "<=" -> SWAP::LT::NOT ::k
+                                       | ">=" -> LT::(addNOT(k))
+                                       | "<=" -> SWAP::LT::(addNOT(k))
 
-                                       | "<>" -> EQ::NOT::k
+                                       | "<>" -> EQ::(addNOT(k))
                                        | "="  -> EQ::k
-                                       | _    -> failwith "CE: this case is not possible"
+                                       | _    -> failwith "CE: this operation case is not possible"
                              CE e1 vEnv fEnv (CE e2 vEnv fEnv ins) 
        | _                -> failwith "CE: not supported yet"
        
@@ -216,6 +197,37 @@ module CodeGenerationOpt =
        | Ass(acc,e)       -> CA acc vEnv fEnv (CE e vEnv fEnv (STI:: addINCSP -1 k))
 
        | Block([],stms)   -> CSs stms vEnv fEnv k
+
+       // add here
+       //| Block(declarations, stms) ->
+       //      let (vEnv, dec_instructions, dealloc_instructions) =
+       //          List.fold (fun (env,instrs, dealloc_instrs) t ->
+       //              let (env, instrs2) = modify_local_environment env t
+       //              let dealloc_instrs2 = [INCSP -1]
+       //              (env, instrs @ instrs2, dealloc_instrs @ dealloc_instrs2)
+       //          ) (vEnv, [], []) declarations
+             
+       //      dec_instructions @ CSs vEnv fEnv stms @ dealloc_instructions
+
+       //  | Alt(gc) -> 
+       //      let outer_label = newLabel()
+       //      CGC vEnv fEnv gc outer_label @ [STOP; Label outer_label] //No matches in an alternate GC = abort
+
+       //  | Do(gc) ->
+       //      let outer_label = newLabel()
+       //      [Label outer_label] @ CGC vEnv fEnv gc outer_label //Every match in a do GC means jumping to the start
+
+       //  | Return(optexp) ->
+       //      let (first_instructions, last_instructions) = 
+       //          match optexp with
+       //          | None -> ([CSTI 0], [INCSP -1]) 
+       //          | Some(exp) -> (CE vEnv fEnv exp, [])
+       //      let stack_frame_size = snd vEnv 
+
+       //      first_instructions @ [RET (stack_frame_size)] @ last_instructions
+
+       //  | Call(f, expressions) ->
+       //      function_call vEnv fEnv f expressions
 
        | _                -> failwith "CS: this statement is not supported yet"
                                                           
