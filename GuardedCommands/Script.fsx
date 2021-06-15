@@ -30,53 +30,48 @@ System.IO.Directory.SetCurrentDirectory __SOURCE_DIRECTORY__;;
 
 // The Ex0.gc example:
 
-let ex0Tree = parseFromFile "try.gc";;
+let ex0Tree = parseFromFile "Ex0.gc";;
 
-//let _ = tcP ex0Tree;;
+let _ = tcP ex0Tree;;
 
-//let ex0Code = CP ex0Tree;; 
+let ex0Code = CP ex0Tree;; 
 
-printfn "Print go***************************************";;
 let _ = go ex0Tree;;
+
 let _ = goTrace ex0Tree;;
 
-printfn "Print goOpt***************************************";;
-let _ = goOpt ex0Tree;;
 
-let _ = goTraceOpt ex0Tree;;
+// Parsing of Ex1.gc
 
+let ex1Tree = parseFromFile "Ex1.gc";; 
 
-//// Parsing of Ex1.gc
+// -- is typechecked as follows:
 
-//let ex1Tree = parseFromFile "Ex1.gc";; 
+let _ = tcP ex1Tree;;
 
-//// -- is typechecked as follows:
+// obtain symbolic code:
+let ex1Code = CP ex1Tree;; 
 
-//let _ = tcP ex1Tree;;
+// -- is executed with trace as follows:
+let stack = goTrace ex1Tree;;
 
-//// obtain symbolic code:
-//let ex1Code = CP ex1Tree;; 
+// -- is executed as follows (no trace):
+let sameStack = go ex1Tree;;
 
-//// -- is executed with trace as follows:
-//let stack = goTrace ex1Tree;;
+// "All in one" parse from file, type check, compile and run 
 
-//// -- is executed as follows (no trace):
-//let sameStack = go ex1Tree;;
+let _ = exec "Ex1.gc";;
 
-//// "All in one" parse from file, type check, compile and run 
+let _ = exec "Ex2.gc";;
 
-//let _ = exec "Ex1.gc";;
+// Test of programs covered by the fifth task using optimized compilation (Section 8.2):
+List.iter execOpt ["Ex1.gc"; "Ex2.gc"];;
 
-//let _ = exec "Ex2.gc";;
+// All programs relating to the basic version can be parsed:
+let pts = List.map parseFromFile ["Ex1.gc"; "Ex2.gc";"Ex3.gc"; "Ex4.gc"; "Ex5.gc"; "Ex6.gc"; "Skip.gc"];;
 
-//// Test of programs covered by the fifth task using optimized compilation (Section 8.2):
-//List.iter execOpt ["Ex1.gc"; "Ex2.gc"];;
-
-//// All programs relating to the basic version can be parsed:
-//let pts = List.map parseFromFile ["Ex1.gc"; "Ex2.gc";"Ex3.gc"; "Ex4.gc"; "Ex5.gc"; "Ex6.gc"; "Skip.gc"];;
-
-//// The parse tree for Ex3.gc
-//List.item 2 pts ;;
+// The parse tree for Ex3.gc
+List.item 2 pts ;;
 
 (*
 // Test of programs covered by the first task (Section 3.7):
