@@ -26,7 +26,11 @@ module CodeGenerationOpt =
  
     //define the expression signal here
  
- 
+    let type_size t =
+        match t with
+        | ATyp (_, Some i) -> i+1
+        | ATyp _ -> failwith "Cannot find the size of an unsized array"
+        | _ -> 1
  
  (* Directly copied from Peter Sestoft   START  
     Code-generating functions that perform local optimizations *)
@@ -105,24 +109,22 @@ module CodeGenerationOpt =
  
  (* End code directly copied from Peter Sestoft *)
 
-    let addADD C =
-        ADD :: C // TODO
 
     let rec function_call vEnv fEnv function_name es k =
         
         match Map.tryFind function_name fEnv with
-        | None -> failwith "Function call to nonexistant function" 
+        | None -> failwith ("Function call to nonexistant function " + function_name)
         
         | Some(lab, topt, (parameters: (Typ * string) list)) ->
             // Fix stack pointer after returning from procedure
             let k = match topt with
-                              | None -> INCSP -1 :: k //TODO: optimized incsp
+                              | None -> addINCSP -1 k
                               | Some _ -> k
             // Perform call
-            let k = makeCall parameters.Length lab k // TODO: not parameters.Length, but their size on the stack
+            let k = makeCall parameters.Length lab k // TODO: not parameters.Length, but their size on the stack. Actually, I think anything passed to a function are 1 long words
             
             // Add expression list
-            List.fold (fun s exp -> CE exp vEnv fEnv s) k es
+            List.fold (fun s exp -> CE exp vEnv fEnv s) k (List.rev es)
 
  /// CE e vEnv fEnv k gives the code for an expression e on the basis of a variable and a function environment and continuation k
     and CE e vEnv fEnv k = 
@@ -161,7 +163,7 @@ module CodeGenerationOpt =
                     CE b1 vEnv fEnv (IFNZRO labfalse :: CE b2 vEnv fEnv (addJump jumpend k2))
         
         //add operation case 
-        | Apply(o,[e1;e2])  when List.exists (fun x -> o=x) ["+";"*";"/";"<";">";"<=";">=";"<>";"="]
+        | Apply(o,[e1;e2])  when List.exists (fun x -> o=x) ["+";"*";"/";"<";">";"<=";">=";"<>";"=";"-"]
                            -> let ins = match o with
                                         | "+"  -> ADD::k
                                         | "*"  -> MUL::k
@@ -189,40 +191,96 @@ module CodeGenerationOpt =
  
  /// CA acc vEnv fEnv k gives the code for an access acc on the basis of a variable and a function environment and continuation k
     and CA acc vEnv fEnv k = 
-       match acc with 
-       | AVar x         -> match Map.find x (fst vEnv) with
-                           | (GloVar addr,_) -> addCST addr k
-                           | (LocVar addr,_) -> GETBP :: addADD k |> addCST addr
-       | AIndex(acc, e) -> addADD k |> CA acc vEnv fEnv |> CE e vEnv fEnv
-       | ADeref e       -> CE e vEnv fEnv k
+        match acc with 
+        | AVar x         -> match Map.find x (fst vEnv) with
+                            | (GloVar addr,_) -> addCST addr k
+                            | (LocVar addr,_) -> GETBP :: ( addCST addr (ADD :: k))
+        | AIndex(acc, e) -> 
+            // We end up with adding the address of the 0th element to the index
+            let k = ADD :: k
+
+            // Before that, we need the index
+            let k = CE e vEnv fEnv k
+
+
+
+            // And we also need to deref the pointer to the 0th element
+            let k = LDI::k
+            // And, to start with, we need that pointer
+            CA acc vEnv fEnv k
+            //First, we need to deref the pointer to the 0th elem
+//            let k = LDI :: k
+//            let k = CA acc vEnv fEnv k
+            
+       
+//            ADD :: k |> CA acc vEnv fEnv |> CE e vEnv fEnv
+        | ADeref e       -> CE e vEnv fEnv k
  
     
- (* Bind declared variable in env and generate code to allocate it: *)  
-    let allocate (kind : int -> Var) (typ, x) (vEnv : varEnv)  =
+
+ (* Bind declared variable in env and generate code to allocate it: *) 
+    let allocate (kind : int -> Var) (typ, x) (vEnv : varEnv) k =
      let (env, fdepth) = vEnv 
      match typ with
      | ATyp (ATyp _, _) -> failwith "allocate: array of arrays not permitted"
+     | ATyp (_, None) -> failwith "Allocation of unsized array is only permitted in function declaration!"
      | ATyp (t, Some i) ->
-         let newEnv = (Map.add x (kind fdepth, typ) env, fdepth+i)
-         let code = [INCSP i]
-         (newEnv, code)
+         let newEnv = (Map.add x (kind fdepth, typ) env, fdepth+i+1)
+         let k = addINCSP i k //Create space for the array
+         let k = addCST (fdepth+1) k // Add a pointer into the array
+         (newEnv, k)
      | _ -> 
        let newEnv = (Map.add x (kind fdepth, typ) env, fdepth+1)
-       let code = [INCSP 1]
-       (newEnv, code)
- 
+       let k= addINCSP 1 k
+       (newEnv, k)
+    
+
+
  /// CS s vEnv fEnv k gives the code for a statement s on the basis of a variable and a function environment and continuation k                            
     let rec CS stm vEnv fEnv k = 
         match stm with
-        | PrintLn e        -> CE e vEnv fEnv (PRINTI:: INCSP -1 :: k) 
+        | PrintLn e        -> CE e vEnv fEnv (PRINTI:: addINCSP -1 k) 
  
         | Ass(acc,e)       -> CA acc vEnv fEnv (CE e vEnv fEnv (STI:: addINCSP -1 k))
- 
+        
+        | Mass(accs, es) -> 
+            List.fold (fun s (acc, e) -> CS (Ass(acc,e)) vEnv fEnv k ) k (List.zip accs es)
+
         | Block([],stms)   -> CSs stms vEnv fEnv k
  
         | Block(decs, stms) ->
-             k // TODO
-        
+
+            let block_fold fn = List.fold (fun s dec ->
+                    match dec with
+                    | VarDec (typ,name) -> fn typ name s
+                    | FunDec _ -> failwith "Local function definitions are a big nono"
+                )
+
+            // Start with deallocate instructions
+            let k = block_fold (fun typ name s -> addINCSP -(type_size typ) s) k decs
+            // Then generate local variable environment
+            let vEnv = 
+                block_fold (fun typ name (env, offset) -> 
+                    (Map.add name (LocVar offset, typ) env, offset+ (type_size typ))
+                ) vEnv decs
+            
+//             let (vEnv, alloc_instrs) = List.fold (allocate LocVar)  TODO
+            
+            // Then we do our statements
+            let k = CSs stms vEnv fEnv k
+
+            // Aaaand, we allocate (which actually happens first)
+            block_fold (fun typ name (s, offset) ->
+                match typ with
+                | ATyp(_, Some i) ->
+                    let s = addINCSP i s
+                    // We need the absolute path to our array, so we need to add the base pointer
+                    let s = GETBP :: (addCST (offset+1) (ADD :: s))
+
+                    (s,offset+i+1)
+                | _ -> (addINCSP 1 s,offset+1)
+            ) (k, 0) decs |> fst
+
         | Alt(gc) -> 
             let (outer_label, k) = addLabel k
             let k = STOP :: k
@@ -230,48 +288,20 @@ module CodeGenerationOpt =
 
         | Do(gc) ->
             let outer_label = newLabel()
-            CGC gc vEnv fEnv k outer_label
+            Label outer_label :: CGC gc vEnv fEnv k outer_label // Can this be optimized?
 
         | Call(f, es) ->
             function_call vEnv fEnv f es k
 
         | Return optexp ->
-            
             let stack_frame_size = snd vEnv
+            
+            let k = RET stack_frame_size :: k
 
-        // add here
-        //| Block(declarations, stms) ->
-        //      let (vEnv, dec_instructions, dealloc_instructions) =
-        //          List.fold (fun (env,instrs, dealloc_instrs) t ->
-        //              let (env, instrs2) = modify_local_environment env t
-        //              let dealloc_instrs2 = [INCSP -1]
-        //              (env, instrs @ instrs2, dealloc_instrs @ dealloc_instrs2)
-        //          ) (vEnv, [], []) declarations
-              
-        //      dec_instructions @ CSs vEnv fEnv stms @ dealloc_instructions
+            match optexp with
+                    | None -> addCST 0 k
+                    | Some e -> CE e vEnv fEnv k
  
-        //  | Alt(gc) -> 
-        //      let outer_label = newLabel()
-        //      CGC vEnv fEnv gc outer_label @ [STOP; Label outer_label] //No matches in an alternate GC = abort
- 
-        //  | Do(gc) ->
-        //      let outer_label = newLabel()
-        //      [Label outer_label] @ CGC vEnv fEnv gc outer_label //Every match in a do GC means jumping to the start
- 
-        //  | Return(optexp) ->
-        //      let (first_instructions, last_instructions) = 
-        //          match optexp with
-        //          | None -> ([CSTI 0], [INCSP -1]) 
-        //          | Some(exp) -> (CE vEnv fEnv exp, [])
-        //      let stack_frame_size = snd vEnv 
- 
-        //      first_instructions @ [RET (stack_frame_size)] @ last_instructions
- 
-        //  | Call(f, expressions) ->
-        //      function_call vEnv fEnv f expressions
- 
-        | _                -> failwith "CS: this statement is not supported yet"
-    
     and CGCsingle vEnv fEnv outer_label k (exp, stms)=
         // First, make a label for the next GC branch
         let (nextLabel, k) = addLabel k
@@ -298,24 +328,69 @@ module CodeGenerationOpt =
  
  (* Build environments for global variables and functions *)
  
-    let makeGlobalEnvs decs = 
-        let rec addv decs vEnv fEnv = 
+    let generateParamDecs xs =
+        List.map (fun (d:Dec) -> 
+            match d with
+            | VarDec(typ, name) -> (typ, name)
+            | _ -> failwith "Only variables are allowed as function parameters!"
+        ) xs
+    
+    let preDecFuncs decs =
+        List.fold (fun s dec ->
+                match dec with
+                | VarDec _ -> s
+                | FunDec(tyOpt, f, xs, _) ->
+                    Map.add f (newLabel(), tyOpt, generateParamDecs xs) s
+            ) Map.empty decs
+
+    let makeGlobalEnvs decs =
+
+        let fEnv = preDecFuncs decs
+
+        let rec addv decs vEnv fEnv k= 
             match decs with 
-            | []         -> (vEnv, fEnv, [])
+            | []         -> (vEnv, fEnv, [], [])
             | dec::decr  -> 
-              match dec with
-              | VarDec (typ, var) -> let (vEnv1, code1) = allocate GloVar (typ, var) vEnv
-                                     let (vEnv2, fEnv2, code2) = addv decr vEnv1 fEnv
-                                     (vEnv2, fEnv2, code1 @ code2)
-              | FunDec (tyOpt, f, xs, body) -> failwith "makeGlobalEnvs: function/procedure declarations not supported yet"
-        addv decs (Map.empty, 0) Map.empty
+                match dec with
+                | VarDec (typ, var) -> 
+                    let (vEnv1, code1) = allocate GloVar (typ, var) vEnv k
+                    
+                    let (vEnv2, fEnv2, code2, funcode2) = addv decr vEnv1 fEnv k
+
+                    (vEnv2, fEnv2, code1 @ code2, funcode2)
+                | FunDec (tyOpt, f, xs, body) -> 
+                    let (lab, _, parameters) = Map.find f fEnv
+                    //let parameters = generateParamDecs xs
+                    let types, offset = vEnv
+
+                    let vEnv_inner = 
+                        List.fold (fun (env, offset) (typ, name) -> 
+                            (Map.add name (LocVar offset, typ) env,offset+1)
+                        ) (types, 0) parameters
+
+                    let (_, dealloc_size) = vEnv_inner
+
+                    let rcode = match tyOpt with
+                                | None -> 
+                                    match dealloc_size with
+                                    | 0 -> [CSTI 0; RET 0]
+                                    | _ -> [RET (dealloc_size-1)]
+                                | Some _ -> []
+
+                    let fk = Label lab :: CS body vEnv_inner fEnv rcode
+                    
+                    let (vEnv2, fEnv2, var_code_2, fun_code_2) = addv decr vEnv fEnv k
+
+                    vEnv2, fEnv2, var_code_2, fk @ fun_code_2
+
+        addv decs (Map.empty, 0) fEnv []
  
  (* CP compiles a program *)
  
     let CP (P(decs,stms)) = 
         let _ = resetLabels ()
-        let ((gvM,_) as gvEnv, fEnv, initCode) = makeGlobalEnvs decs
-        initCode @ CSs stms gvEnv fEnv [STOP]     
+        let ((gvM,_) as gvEnv, fEnv, initCode, postCode) = makeGlobalEnvs decs
+        initCode @ CSs stms gvEnv fEnv [STOP] @ postCode
  
  
  
