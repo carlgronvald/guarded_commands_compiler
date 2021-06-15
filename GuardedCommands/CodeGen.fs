@@ -130,12 +130,14 @@ module CodeGeneration =
  
         | Block([],stms) ->   CSs vEnv fEnv stms
         | Block(declarations, stms) ->
-            let (vEnv, dec_instructions) =
-                List.fold (fun (env,instrs) t ->
+            let (vEnv, dec_instructions, dealloc_instructions) =
+                List.fold (fun (env,instrs, dealloc_instrs) t ->
                     let (env, instrs2) = modify_local_environment env t
-                    (env, instrs @ instrs2)
-                ) (vEnv, []) declarations
-            dec_instructions @ CSs vEnv fEnv stms
+                    let dealloc_instrs2 = [INCSP -1]
+                    (env, instrs @ instrs2, dealloc_instrs @ dealloc_instrs2)
+                ) (vEnv, [], []) declarations
+            
+            dec_instructions @ CSs vEnv fEnv stms @ dealloc_instructions
 
         | Alt(gc) -> 
             let outer_label = newLabel()
@@ -179,6 +181,16 @@ module CodeGeneration =
             | VarDec(typ, name) -> (typ, name)
             | _ -> failwith "Only variables are allowed as function parameters!"
         ) xs
+       
+       
+    /// Find all function declarations and put them in a map with labels, so they can be used before being defined.
+    /// Allows all functions to be mutually recursive with one another
+    let pre_function_handling fEnv decs =
+        let function_label s = function
+            | VarDec _ -> s
+            | FunDec(tyOpt,f,xs,_) -> Map.add f (newLabel(), tyOpt, generateParamDecs xs) s
+        List.fold function_label fEnv decs
+
 
     let makeGlobalEnvs decs = 
         // addv takes the list of declarations, pops off the top declaration,
@@ -193,9 +205,8 @@ module CodeGeneration =
                                      let (vEnv2, fEnv2, var_code_2, fun_code_2) = addv decr vEnv1 fEnv
                                      (vEnv2, fEnv2, code1 @var_code_2, fun_code_2)
               | FunDec (tyOpt, f, xs, body) -> 
-                  let lab = newLabel()
+                  let (lab, _, _) = Map.find f fEnv
                   let parameters = generateParamDecs xs
-                  let fEnv = Map.add f (lab, tyOpt, generateParamDecs xs) fEnv
                   let types, offset = vEnv
 
                   let (vEnv_inner, _) = 
@@ -206,14 +217,18 @@ module CodeGeneration =
 
                     
                   let (vEnv2, fEnv2, var_code_2, fun_code_2) = addv decr vEnv fEnv 
-                  // TODO: figure out how to get the base pointer for when we access local variables.
+
                   let rcode = match tyOpt with
                               | None -> [RET xs.Length]
                               | Some(_) -> []
 
                   vEnv2, fEnv2, var_code_2, [Label lab] @ CS vEnv_inner fEnv body @ rcode @ fun_code_2
-        addv decs (Map.empty, 0) Map.empty
+                  
+        let fEnv = pre_function_handling Map.empty decs
+
+        addv decs (Map.empty, 0) fEnv
  
+
  /// CP prog gives the code for a program prog
     let CP (P(decs,stms)) = 
         let _ = resetLabels ()
