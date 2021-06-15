@@ -14,6 +14,7 @@
 #load "CodeGenOpt.fs"
 #load "VirtualMachine.fs"
 #load "Util.fs"
+#load "Tests.fs"
 
 
 open GuardedCommands.Util
@@ -30,6 +31,23 @@ System.IO.Directory.SetCurrentDirectory __SOURCE_DIRECTORY__;;
 
 // The Ex0.gc example:
 
+Tests.test();;
+
+
+
+(* Testing functions and procedures *)
+(*
+let testTree = parseFromFile  "A0.gc";;
+printfn "%A" testTree
+let code = CP testTree
+printfn "%A" code
+*)
+
+
+
+
+
+(*
 let ex0Tree = parseFromFile "Ex0.gc";;
 
 let _ = tcP ex0Tree;;
@@ -72,7 +90,7 @@ let pts = List.map parseFromFile ["Ex1.gc"; "Ex2.gc";"Ex3.gc"; "Ex4.gc"; "Ex5.gc
 
 // The parse tree for Ex3.gc
 List.item 2 pts ;;
-
+*)
 (*
 // Test of programs covered by the first task (Section 3.7):
 List.iter exec ["Ex1.gc"; "Ex2.gc";"Ex3.gc"; "Ex4.gc"; "Ex5.gc"; "Ex6.gc"; "Skip.gc"];;
@@ -91,5 +109,5 @@ List.iter exec ["par1.gc"; "factImpPTyp.gc"; "QuickSortV2.gc"; "par2.gc"];;
 
 // Test of programs covered by the fifth task using optimized compilation (Section 8.2):
 List.iter execOpt ["par1.gc"; "factImpPTyp.gc"; "QuickSortV2.gc"; "par2.gc"];;
-
 *)
+

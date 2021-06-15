@@ -153,7 +153,9 @@ module TypeCheck =
                                 if atyp = etyp 
                                 then ()
                                 else failwith (sprintf "illtyped assignment %A = %A, %A=%A" acc e atyp etyp)                                
-
+                            | Mass(accs, es) -> 
+                                let listOfAccess = List.zip accs es      
+                                List.iter (fun (a,e) -> tcS gtenv ltenv (Ass(a,e))) listOfAccess
                             | Block([],stms) -> List.iter (tcS gtenv ltenv) stms
                             | Block(decs, stms) ->
                                 //if List.length decs > 0 then failwith "Inner local declarations are currently disallowed!" 
