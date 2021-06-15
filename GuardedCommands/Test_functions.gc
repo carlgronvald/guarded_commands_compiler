@@ -3,7 +3,7 @@ begin
    function f(x: int): int = {
        y: int;
        y := x;
-       print y;
+       printInt(y);
        if x=0  -> return y + 1
            | x<>0 -> return y + 2
        fi
@@ -12,12 +12,12 @@ begin
        y: int;
        y := x;
        do ! y = 0  -> 
-           print y; y := y - 1
+           printInt(y); y := y - 1
        od;
        return y
    },
    procedure printInt(x: int) = {
        print x
    };
-   printInt(g(f(f(f(f(0))))))
+   print g(f(f(f(f(0)))))
 end

@@ -72,8 +72,10 @@ module CodeGeneration =
         | Some(lab, topt, (parameters: (Typ * string) list)) ->
             let expr_instr_list =
                 List.fold (fun s exp -> s @ CE vEnv fEnv exp) [] es
-            
-            expr_instr_list @  [CALL (parameters.Length, lab)]
+            let final_instr = match topt with
+                              | None -> [INCSP -1]
+                              | Some _ -> []
+            expr_instr_list @  [CALL (parameters.Length, lab)] @ final_instr
 
     
     /// CE vEnv fEnv e gives the code for an expression e on the basis of a variable and a function environment
@@ -219,7 +221,7 @@ module CodeGeneration =
                   let (vEnv2, fEnv2, var_code_2, fun_code_2) = addv decr vEnv fEnv 
 
                   let rcode = match tyOpt with
-                              | None -> [RET xs.Length]
+                              | None -> [RET 0]
                               | Some(_) -> []
 
                   vEnv2, fEnv2, var_code_2, [Label lab] @ CS vEnv_inner fEnv body @ rcode @ fun_code_2
