@@ -135,6 +135,10 @@ module CodeGeneration =
         | PrintLn e        -> CE vEnv fEnv e @ [PRINTI; INCSP -1] 
  
         | Ass(acc,e)       -> CA vEnv fEnv acc @ CE vEnv fEnv e @ [STI; INCSP -1]
+        
+        | Mass(accs, es)   ->
+            let listOfAccess = List.zip accs es
+            List.collect (fun (a,e) -> CS vEnv fEnv (Ass(a,e))) listOfAccess
  
         | Block([],stms) ->   CSs vEnv fEnv stms
         | Block(declarations, stms) ->
