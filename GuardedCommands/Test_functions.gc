@@ -1,9 +1,11 @@
 begin 
    x: int,
    function f(x: int): int = {
-       print x;
-       if x=0  -> return x + 1
-           | x<>0 -> return x + 2
+       y: int;
+       y := x;
+       print y;
+       if x=0  -> return y + 1
+           | x<>0 -> return y + 2
        fi
    }, 
    function g(x: int): int = {
@@ -13,6 +15,9 @@ begin
            print y; y := y - 1
        od;
        return y
+   },
+   procedure printInt(x: int) = {
+       print x
    };
-   print g(f(f(f(f(0)))))
+   printInt(g(f(f(f(f(0))))))
 end
