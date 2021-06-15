@@ -91,9 +91,12 @@ module TypeCheck =
             match function_parameter_type gtenv f i with
             | None -> failwith ("At least " + (string)(i+1) + " parameters were supplied for function or procedure " + f + ", but it only needs " + (string)(i))
             | Some(typ) -> 
-                if typ = x then
-                    ()
-                else failwith ("parameter " + (string)(i+1) + " for function or procedure " + f + " is of wrong type")
+                match (typ, x) with
+                | (ATyp(t1, None), ATyp(t2, _))->
+                    if t1 <> t2 then failwith ("Parameter " + (string)(i+1) + " for function or procedure " + f + " is of wrong type")
+                | _, _ ->
+                    if typ <> x then failwith ("Parameter " + (string)(i+1) + " for function or procedure " + f + " is of wrong type")
+                
         
         match function_parameter_type gtenv f types.Length with
         | None -> ()
@@ -213,6 +216,10 @@ module TypeCheck =
     and tcGDec gtenv = function
                        | VarDec(t,s) -> 
                            check_exists s gtenv
+                           
+                           match t with
+                           | ATyp(_, None) -> failwith "Arrays cannot be declared without a length"
+                           | _ -> ()
                            Map.add s t gtenv
                        | FunDec(topt,f, decs, stm) ->
                            tcFunDec gtenv topt f decs stm
@@ -238,6 +245,9 @@ module TypeCheck =
     and tcLDec gtenv (ltenv, local_types) = function
                                             | VarDec(t,s) -> 
                                                 check_exists s ltenv
+                                                match t with
+                                                | ATyp(_, None) -> failwith "Arrays cannot be declared without a length"
+                                                | _ -> ()
                                                 Map.add s t ltenv, local_types @ [t]
                                             | FunDec(_,_,_,_) -> failwith "Local function declarations are not allowed"
 
