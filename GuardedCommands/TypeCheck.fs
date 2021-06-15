@@ -43,6 +43,7 @@ module TypeCheck =
         | Do(gc) -> returning_gc gc
         | Block(_, stms) -> List.exists returning_statement stms
         | Call _ -> false
+        | Mass _ -> false
 
     /// Checks whether all paths through a GC end in a return
     and returning_gc (GC(ls)) =
@@ -159,7 +160,7 @@ module TypeCheck =
                             | Block([],stms) -> List.iter (tcS gtenv ltenv) stms
                             | Block(decs, stms) ->
                                 //if List.length decs > 0 then failwith "Inner local declarations are currently disallowed!" 
-                                let (ltenv,_) = tcLDecs gtenv (ltenv, []) decs
+                                let (ltenv,_) = tcLDecs gtenv false (ltenv, []) decs
                                 List.iter (tcS gtenv ltenv) stms
 
                             | Return(expopt) ->
@@ -187,7 +188,7 @@ module TypeCheck =
             | None -> Map.add (procedure_prefix + f) ITyp gtenv
             | Some(typ) -> Map.add (return_prefix + f) typ gtenv
 
-        let (_, types) = tcLDecs gtenv (Map.empty, []) decs //TODO maybe split tcLDecs
+        let (_, types) = tcLDecs gtenv true (Map.empty, []) decs //TODO maybe split tcLDecs
         // Add function input types to the global environment so we can type check them later
         let gtenv = 
             List.mapi (fun i x -> ((function_parameter_name f i),x)) types
@@ -208,7 +209,7 @@ module TypeCheck =
                     | Some(typ) -> enter_function Map.empty typ
 
         // Then type check declarations
-        let (ltenv, _) = tcLDecs gtenv (ltenv, []) decs
+        let (ltenv, _) = tcLDecs gtenv true (ltenv, []) decs
 
         // Type check the insides of the function
         tcS gtenv ltenv stm
@@ -244,11 +245,11 @@ module TypeCheck =
                         | _         -> gtenv
 
     /// Handles a single local declaration
-    and tcLDec gtenv (ltenv, local_types) = function
+    and tcLDec gtenv in_function_declaration (ltenv, local_types)  = function
                                             | VarDec(t,s) -> 
                                                 check_exists s ltenv
                                                 match t with
-                                                | ATyp(_, None) -> failwith "Arrays cannot be declared without a length"
+                                                | ATyp(_, None) when not in_function_declaration -> failwith "Arrays cannot be declared without a length"
                                                 | _ -> ()
                                                 Map.add s t ltenv, local_types @ [t]
                                             | FunDec(_,_,_,_) -> failwith "Local function declarations are not allowed"
@@ -257,8 +258,8 @@ module TypeCheck =
     /// 
     /// Returns both the resulting local environment and the list of locally declared types in order,
     /// since the types are needed for function definitions
-    and tcLDecs gtenv (ltenv, local_types) = function
-                              | dec::decs -> tcLDecs gtenv (tcLDec gtenv (ltenv,local_types) dec) decs
+    and tcLDecs gtenv in_function_declaration (ltenv, local_types) = function
+                              | dec::decs -> tcLDecs gtenv in_function_declaration (tcLDec gtenv in_function_declaration (ltenv,local_types)  dec) decs
                               | _ -> (ltenv, local_types)
 
     and tcGC gtenv ltenv = function

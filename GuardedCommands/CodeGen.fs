@@ -46,15 +46,21 @@ module CodeGeneration =
 
     
     (* Bind declared variable in env and generate code to allocate it: *)   
-    let allocate (kind : int -> Var) (typ, x) (vEnv : varEnv)  =
+    let allocate (kind : int -> Var) (typ, x) (vEnv : varEnv) in_function_declaration =
         let (env, fdepth) = vEnv 
         match typ with
         | ATyp (ATyp _, _) -> 
             raise (Failure "allocate: array of arrays not permitted")
         | ATyp (t, Some i) ->
-            let newEnv = (Map.add x (kind fdepth, typ) env, fdepth+i)
-            let code = [INCSP i]
-            (newEnv, code)
+
+            if in_function_declaration then // If we're in a function declaration, we just make space for the pointer
+                let newEnv = (Map.add x (kind fdepth, typ) env, fdepth+1)
+                let code = [INCSP 1]
+                (newEnv, code)
+            else // If we're truly declaring a new array, we need the list as well
+                let newEnv = (Map.add x (kind fdepth, typ) env, fdepth+i+1)
+                let code = [CSTI (fdepth+1); INCSP i]
+                (newEnv, code)
         | _ -> 
             let newEnv = (Map.add x (kind fdepth, typ) env, fdepth+1)
             let code = [INCSP 1]
@@ -63,7 +69,7 @@ module CodeGeneration =
     /// Returns the modified variable environment and the instructions for local declarations of variables
     let modify_local_environment vEnv =
         function
-        | VarDec(typ, string) -> allocate LocVar (typ, string) vEnv
+        | VarDec(typ, string) -> allocate LocVar (typ, string) vEnv false
         | FunDec(_) -> failwith "Cannot locally define a function"
 
     let rec function_call vEnv fEnv function_name es =
@@ -117,7 +123,7 @@ module CodeGeneration =
                                     match Map.find x (fst vEnv) with
                                     | (GloVar addr,_) -> [CSTI addr]
                                     | (LocVar addr,_) -> [GETBP; CSTI (addr); ADD]
-                                | AIndex(acc, e) -> (CE vEnv fEnv e) @ (CA vEnv fEnv acc) @ [ADD]
+                                | AIndex(acc, e) -> (CE vEnv fEnv e) @ (CA vEnv fEnv acc) @ [LDI; ADD]
                                 | ADeref(e) -> CE vEnv fEnv e
  
    
@@ -203,7 +209,7 @@ module CodeGeneration =
             | []         -> (vEnv, fEnv, [], [])
             | dec::decr  -> 
               match dec with
-              | VarDec (typ, var) -> let (vEnv1, code1) = allocate GloVar (typ, var) vEnv
+              | VarDec (typ, var) -> let (vEnv1, code1) = allocate GloVar (typ, var) vEnv false
                                      let (vEnv2, fEnv2, var_code_2, fun_code_2) = addv decr vEnv1 fEnv
                                      (vEnv2, fEnv2, code1 @var_code_2, fun_code_2)
               | FunDec (tyOpt, f, xs, body) -> 
@@ -213,15 +219,17 @@ module CodeGeneration =
 
                   let (vEnv_inner, _) = 
                       List.fold (fun (variable_environment, instructions) x ->
-                          let (v2,i2) = allocate LocVar (x) variable_environment
+                          let (v2,i2) = allocate LocVar (x) variable_environment true
                           (v2, instructions@i2)
                       ) ((types,0), []) parameters 
 
                     
                   let (vEnv2, fEnv2, var_code_2, fun_code_2) = addv decr vEnv fEnv 
 
+                  let (_, dealloc_size) = vEnv_inner
+
                   let rcode = match tyOpt with
-                              | None -> [RET 0]
+                              | None -> [INCSP -dealloc_size; CSTI 0; RET 0]
                               | Some(_) -> []
 
                   vEnv2, fEnv2, var_code_2, [Label lab] @ CS vEnv_inner fEnv body @ rcode @ fun_code_2
