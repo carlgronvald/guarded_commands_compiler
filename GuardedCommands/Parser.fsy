@@ -93,7 +93,7 @@ Stm:
   | RETURN Exp                        { Return (Some $2) }
   | RETURN                            { Return None}
   | PLUSPLUS Access                   { Inc($2) }
-  | Access PLUSPLUS                   { Inc($1) }
+  | MINUSMINUS Access                 { Dec($2) }
 
 StmL:
                                       { [] } 

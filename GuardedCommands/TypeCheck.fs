@@ -184,6 +184,11 @@ module TypeCheck =
                                 if atyp = ITyp 
                                 then ()
                                 else failwith "Can only increment integers"
+                            | Dec(acc) ->
+                                let atyp = tcA gtenv ltenv acc
+                                if atyp = ITyp 
+                                then ()
+                                else failwith "Can only deincrement integers"
 
     /// Handles preparing for function declarations.
     and tcFunDecOuter gtenv topt f decs stm =
