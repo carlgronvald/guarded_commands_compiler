@@ -108,7 +108,42 @@ module CodeGenerationOpt =
  (* ------------------------------------------------------------------- *)
  
  (* End code directly copied from Peter Sestoft *)
+    let allocate_environment (kind: int -> Var) (vEnv : varEnv) (typ,x) =
+        let (env, fdepth) = vEnv 
+        match typ with
+        | ATyp (ATyp _, _) -> failwith "allocate: array of arrays not permitted"
+        | ATyp (_, None) -> failwith "Allocation of unsized array is only permitted in function declaration!"
+        | ATyp (t, Some i) ->
+            (Map.add x (kind fdepth, typ) env, fdepth+i+1)
+        | _ -> 
+            let newEnv = (Map.add x (kind fdepth, typ) env, fdepth+1)
+            newEnv
 
+    /// Must happen after creating the environment for the declarations.
+    ///
+    /// Declarations must be passed in reverse to this function
+    let allocate_instructions (kind : int -> Var) (vEnv : varEnv) k (typ,x)  =
+        let (env, _) = vEnv
+        match typ with
+        | ATyp (ATyp _, _) -> failwith "allocate: array of arrays not permitted"
+        | ATyp (_, None) -> failwith "Allocation of unsized array is only permitted in function declaration!"
+        | ATyp (t, Some i) ->
+            let (var, _) = Map.find x env
+            let k = addINCSP i k
+            match var with
+            | LocVar offset -> GETBP :: addCST (offset+1) ( ADD :: k)
+            | GloVar offset -> addCST (offset+1) k
+        | _ -> 
+            addINCSP 1 k
+
+    let deallocate_instructions k (typ,_) =
+        addINCSP -(type_size typ) k
+
+    /// Separates variable declarations and function declarations
+    let separate_decs decs =
+        List.fold (fun (vds, fds) -> function
+        | VarDec (typ, name) -> ((typ, name)::vds, fds)
+        | FunDec (tyOpt, f, xs, body) -> (vds, (tyOpt,f,xs,body)::fds)) ([],[]) decs
 
     let rec function_call vEnv fEnv function_name es k =
         
@@ -218,21 +253,6 @@ module CodeGenerationOpt =
  
     
 
- (* Bind declared variable in env and generate code to allocate it: *) 
-    let allocate (kind : int -> Var) (typ, x) (vEnv : varEnv) k =
-     let (env, fdepth) = vEnv 
-     match typ with
-     | ATyp (ATyp _, _) -> failwith "allocate: array of arrays not permitted"
-     | ATyp (_, None) -> failwith "Allocation of unsized array is only permitted in function declaration!"
-     | ATyp (t, Some i) ->
-         let newEnv = (Map.add x (kind fdepth, typ) env, fdepth+i+1)
-         let k = addINCSP i k //Create space for the array
-         let k = addCST (fdepth+1) k // Add a pointer into the array
-         (newEnv, k)
-     | _ -> 
-       let newEnv = (Map.add x (kind fdepth, typ) env, fdepth+1)
-       let k= addINCSP 1 k
-       (newEnv, k)
     
 
 
@@ -250,6 +270,8 @@ module CodeGenerationOpt =
  
         | Block(decs, stms) ->
 
+            let (var_decs, fun_decs) = separate_decs decs
+
             let block_fold fn = List.fold (fun s dec ->
                     match dec with
                     | VarDec (typ,name) -> fn typ name s
@@ -257,12 +279,21 @@ module CodeGenerationOpt =
                 )
 
             // Start with deallocate instructions
-            let k = block_fold (fun typ name s -> addINCSP -(type_size typ) s) k decs
+//            let k1 = block_fold (fun typ name s -> addINCSP -(type_size typ) s) [] decs
+//            let k2 = List.fold deallocate_instructions [] var_decs
+//            printfn "k1: %A, k2: %A" k1 k2
+            let k = List.fold deallocate_instructions k var_decs
             // Then generate local variable environment
-            let vEnv = 
+            let vEnv = List.fold (allocate_environment LocVar) vEnv var_decs
+
+                    
+
+            (*let vEnv1 = 
                 block_fold (fun typ name (env, offset) -> 
                     (Map.add name (LocVar offset, typ) env, offset+ (type_size typ))
                 ) vEnv decs
+            let vEnv2 = List.fold (allocate_environment LocVar) vEnv var_decs
+            printfn "k1: %A, k2: %A" vEnv1 vEnv2*)
             
 //             let (vEnv, alloc_instrs) = List.fold (allocate LocVar)  TODO
             
@@ -270,16 +301,33 @@ module CodeGenerationOpt =
             let k = CSs stms vEnv fEnv k
 
             // Aaaand, we allocate (which actually happens first)
-            block_fold (fun typ name (s, offset) ->
-                match typ with
-                | ATyp(_, Some i) ->
-                    let s = addINCSP i s
-                    // We need the absolute path to our array, so we need to add the base pointer
-                    let s = GETBP :: (addCST (offset+1) (ADD :: s))
+            (*let k1 = List.fold (allocate_instructions LocVar vEnv) [] (var_decs)
+            let k2 =
+                block_fold (fun typ name (s, offset) ->
+                    match typ with
+                    | ATyp(_, Some i) ->
+                        let s = addINCSP i s
+                        // We need the absolute path to our array, so we need to add the base pointer
+                        let s = GETBP :: (addCST (offset+1) (ADD :: s))
+                
+                        (s,offset+i+1)
+                    | _ -> (addINCSP 1 s,offset+1)
+                ) ([], 0) decs |> fst
+            printfn "k1: %A, k2: %A" k1 k2 *)
+            List.fold (allocate_instructions LocVar vEnv) k (var_decs)
+            
 
-                    (s,offset+i+1)
-                | _ -> (addINCSP 1 s,offset+1)
-            ) (k, 0) decs |> fst
+
+//            block_fold (fun typ name (s, offset) ->
+//                match typ with
+//                | ATyp(_, Some i) ->
+//                    let s = addINCSP i s
+                    // We need the absolute path to our array, so we need to add the base pointer
+//                    let s = GETBP :: (addCST (offset+1) (ADD :: s))
+
+//                    (s,offset+i+1)
+//                | _ -> (addINCSP 1 s,offset+1)
+//            ) (k, 0) decs |> fst
 
         | Alt(gc) -> 
             let (outer_label, k) = addLabel k
@@ -335,55 +383,51 @@ module CodeGenerationOpt =
             | _ -> failwith "Only variables are allowed as function parameters!"
         ) xs
     
+    /// Register functions so we can do mutual recursion
     let preDecFuncs decs =
-        List.fold (fun s dec ->
-                match dec with
-                | VarDec _ -> s
-                | FunDec(tyOpt, f, xs, _) ->
-                    Map.add f (newLabel(), tyOpt, generateParamDecs xs) s
+        List.fold (fun s (tyOpt, f, xs, _) ->
+                Map.add f (newLabel(), tyOpt, generateParamDecs xs) s
             ) Map.empty decs
 
+    let decFunc vEnv fEnv k (tyOpt, f, xs, body) =
+        let (lab, _, parameters) = Map.find f fEnv
+        //let parameters = generateParamDecs xs
+        let types, offset = vEnv
+
+        let vEnv_inner = 
+            List.fold (fun (env, offset) (typ, name) -> 
+                (Map.add name (LocVar offset, typ) env,offset+1)
+            ) (types, 0) parameters
+
+        let (_, dealloc_size) = vEnv_inner
+
+        let k = match tyOpt with
+                    | None -> 
+                        match dealloc_size with
+                        | 0 -> addCST 0 ( RET 0 :: k)
+                        | _ -> RET (dealloc_size-1) :: k
+                    | Some _ -> k
+
+        Label lab :: CS body vEnv_inner fEnv k
+
+        
+
     let makeGlobalEnvs decs =
+        // Start out by filtering out variable and function declarations
+        let (vardecs, fundecs) = separate_decs decs
 
-        let fEnv = preDecFuncs decs
+        // Generate function and variable environment 
+        let fEnv = preDecFuncs fundecs
+        let vEnv = List.fold (allocate_environment GloVar ) (Map.empty, 0) vardecs
 
-        let rec addv decs vEnv fEnv k= 
-            match decs with 
-            | []         -> (vEnv, fEnv, [], [])
-            | dec::decr  -> 
-                match dec with
-                | VarDec (typ, var) -> 
-                    let (vEnv1, code1) = allocate GloVar (typ, var) vEnv k
-                    
-                    let (vEnv2, fEnv2, code2, funcode2) = addv decr vEnv1 fEnv k
+        // Then generate function and variable instructions
+        let var_instructions = List.fold (allocate_instructions GloVar vEnv) [] (List.rev vardecs)
+        let fun_instructions = List.fold (decFunc vEnv fEnv) [] fundecs
 
-                    (vEnv2, fEnv2, code1 @ code2, funcode2)
-                | FunDec (tyOpt, f, xs, body) -> 
-                    let (lab, _, parameters) = Map.find f fEnv
-                    //let parameters = generateParamDecs xs
-                    let types, offset = vEnv
+        printfn "vEnv %A" vEnv
 
-                    let vEnv_inner = 
-                        List.fold (fun (env, offset) (typ, name) -> 
-                            (Map.add name (LocVar offset, typ) env,offset+1)
-                        ) (types, 0) parameters
+        (vEnv, fEnv, var_instructions, fun_instructions)
 
-                    let (_, dealloc_size) = vEnv_inner
-
-                    let rcode = match tyOpt with
-                                | None -> 
-                                    match dealloc_size with
-                                    | 0 -> [CSTI 0; RET 0]
-                                    | _ -> [RET (dealloc_size-1)]
-                                | Some _ -> []
-
-                    let fk = Label lab :: CS body vEnv_inner fEnv rcode
-                    
-                    let (vEnv2, fEnv2, var_code_2, fun_code_2) = addv decr vEnv fEnv k
-
-                    vEnv2, fEnv2, var_code_2, fk @ fun_code_2
-
-        addv decs (Map.empty, 0) fEnv []
  
  (* CP compiles a program *)
  
