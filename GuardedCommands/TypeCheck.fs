@@ -10,7 +10,7 @@ module TypeCheck =
     let int_logic_operators = ["<";">";"<=";">=";"<>";"="]
     let arithmetic_operators = ["+";"*";"/";"-"] //TODO: BINARY MINUS OPERATORY
     let binary_operators = bool_logic_operators @ int_logic_operators @ arithmetic_operators |> distinct
-    let unary_int_operators = ["-"]
+    let unary_int_operators = ["-"; "++"; "--"]
     let unary_bool_operators = ["!"]
     let unary_operators = unary_int_operators @ unary_bool_operators |> distinct
     let return_prefix = "return "

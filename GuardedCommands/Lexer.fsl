@@ -65,6 +65,8 @@ rule tokenize =
   | "-"         { MINUS }
   | "="         { EQ }
   | "+"         { PLUS }
+  | "++"        { PLUSPLUS }
+  | "--"        { MINUSMINUS }
   | "/"         { DIV }
   | "||"        { OR }
   | "&"         { ADDR }

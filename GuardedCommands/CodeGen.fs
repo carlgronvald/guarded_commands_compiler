@@ -99,6 +99,8 @@ module CodeGeneration =
  
         | Apply("-", [e]) -> CE vEnv fEnv e @  [CSTI 0; SWAP; SUB]
         | Apply("!", [e]) -> CE vEnv fEnv e @  [NOT]
+        | Apply("++", [e]) -> CE vEnv fEnv e @  [CSTI 1; ADD]
+        | Apply("--", [e]) -> CE vEnv fEnv e @  [CSTI 1; SUB]
  
         | Apply("&&",[b1;b2]) -> let labend   = newLabel()
                                  let labfalse = newLabel()
