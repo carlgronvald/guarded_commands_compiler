@@ -1,0 +1,71 @@
+begin
+    procedure main(n: int) = { 
+        i: int,
+        u: int,
+        j: int,
+        used: bool[100],
+        diag1: bool[100],
+        diag2: bool[100],
+        col: int[100];
+
+        u := 1;
+        do u <= n -> 
+            used[u] := false;
+            u:=u+1
+        od;
+
+        u := 1;
+        do u <= (2*n) -> 
+            diag1[u] := false;
+            diag2[u] := false;
+            u:=u+1
+        od;
+
+        i := 1;
+        u := 1;
+        do i > 0 -> 
+            do ((i <= n) && (i <> 0)) -> 
+                do (u <= n) && (used[u] = true || diag1[u-i+n] = true || diag2[u+i] = true) -> 
+                    u:= u + 1
+                od;
+    
+                if u <= n ->
+                    col[i] := u;
+                    used[u] := true;
+                    diag1[u-i+n] := true;
+                    diag2[u+i] := true;
+                    i := i+1;
+                    u := 1
+                | !(u <= n) ->
+                    i := i - 1;
+                    if i > 0 ->
+                        u := col[i];
+                        used[u] := false;
+                        diag1[u-i+n] := false;
+                        diag2[u+i] := false;
+                        u := u + 1
+                    fi
+                fi
+            od;
+    
+            if i > n ->
+                j := 1;
+    
+                do j <= n ->
+                    print col[j];
+                    j := j +1
+                od;
+                i := i - 1;
+    
+                if i > 0 ->
+                    u := col[i];
+                    used[u] := false;
+                    diag1[u-i+n] := false;
+                    diag2[u+i] := false;
+                    u := u + 1
+                fi
+            fi
+        od
+    };
+    main(10)
+end
