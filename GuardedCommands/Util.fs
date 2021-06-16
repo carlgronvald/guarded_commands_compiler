@@ -46,7 +46,9 @@ module CompilerUtil =
 
 /// goOpt p compiles abstract syntax of a program, runs the showing a trace  
    let goTrace p = runTrace(code2ints(CodeGeneration.CP p))
-
+ 
+   let goTraceOpt p = runTrace(code2ints(CodeGenerationOpt.CP p))
+    
 /// exec filename parses, type checks, compiles and runs a program in a file
    let exec filename =  printfn "\nParse, typecheck, compilation and execution of %s:" filename 
                         let prog = parseFromFile filename
