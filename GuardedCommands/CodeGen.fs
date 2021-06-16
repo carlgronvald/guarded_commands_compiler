@@ -59,7 +59,11 @@ module CodeGeneration =
                 (newEnv, code)
             else // If we're truly declaring a new array, we need the list as well
                 let newEnv = (Map.add x (kind fdepth, typ) env, fdepth+i+1)
-                let code = [CSTI (fdepth+1); INCSP i]
+                // adding the current depth to the base pointer gets the absolute offset of the start of the array
+                let code = match kind 1 with
+                           | GloVar _ -> [CSTI (fdepth+1); INCSP i]
+                           | LocVar _ -> [CSTI (fdepth+1);GETBP;ADD; INCSP i]
+                
                 (newEnv, code)
         | _ -> 
             let newEnv = (Map.add x (kind fdepth, typ) env, fdepth+1)
@@ -145,7 +149,9 @@ module CodeGeneration =
             let (vEnv, dec_instructions, dealloc_instructions) =
                 List.fold (fun (env,instrs, dealloc_instrs) t ->
                     let (env, instrs2) = modify_local_environment env t
-                    let dealloc_instrs2 = [INCSP -1]
+                    let dealloc_instrs2 = match t with
+                                          | VarDec(ATyp(_, Some i), _) -> [INCSP (-i-1)]
+                                          | _ -> [INCSP -1] //FunDecs are already handled in the type checker
                     (env, instrs @ instrs2, dealloc_instrs @ dealloc_instrs2)
                 ) (vEnv, [], []) declarations
             
