@@ -424,8 +424,6 @@ module CodeGenerationOpt =
         let var_instructions = List.fold (allocate_instructions GloVar vEnv) [] (List.rev vardecs)
         let fun_instructions = List.fold (decFunc vEnv fEnv) [] fundecs
 
-        printfn "vEnv %A" vEnv
-
         (vEnv, fEnv, var_instructions, fun_instructions)
 
  
