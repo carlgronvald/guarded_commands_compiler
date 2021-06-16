@@ -17,7 +17,7 @@ open GuardedCommands.Frontend.AST
 %token HIGH
 
 %left AND OR
-%nonassoc NEG PLUSPLUS MINUSMINUS
+%nonassoc NEG PLUSPLUS MINUSMINUS 
 %left EQ LE GE LT GT NEQ
 %left PLUS MINUS 
 %left TIMES DIV
@@ -92,6 +92,8 @@ Stm:
   | DO GuardedCommand OD              { Do $2  }
   | RETURN Exp                        { Return (Some $2) }
   | RETURN                            { Return None}
+  | PLUSPLUS Access                   { Inc($2) }
+  | Access PLUSPLUS                   { Inc($1) }
 
 StmL:
                                       { [] } 

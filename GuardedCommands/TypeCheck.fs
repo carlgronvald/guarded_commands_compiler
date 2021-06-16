@@ -179,6 +179,11 @@ module TypeCheck =
                             | Alt(gc) -> tcGC gtenv ltenv gc
                             | Do(gc) -> tcGC gtenv ltenv gc
                             | Call(f, es) -> tcNaryProcedure gtenv ltenv f es
+                            | Inc(acc) ->
+                                let atyp = tcA gtenv ltenv acc
+                                if atyp = ITyp 
+                                then ()
+                                else failwith "Can only increment integers"
 
     /// Handles preparing for function declarations.
     and tcFunDecOuter gtenv topt f decs stm =

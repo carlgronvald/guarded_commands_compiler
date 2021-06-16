@@ -178,6 +178,8 @@ module CodeGeneration =
 
         | Call(f, expressions) ->
             function_call vEnv fEnv f expressions
+
+        | Inc(acc) -> CA vEnv fEnv acc @ [LDI; CSTI 1; ADD] @ CA vEnv fEnv acc @ [INCSP (-1); STI]
  
     and CSs vEnv fEnv stms = List.collect (CS vEnv fEnv) stms 
  
