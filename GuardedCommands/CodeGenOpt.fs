@@ -167,9 +167,9 @@ module CodeGenerationOpt =
         | N n          -> addCST n k
         | B b          -> addCST (if b then 1 else 0) k
         | Access acc  -> CA acc vEnv fEnv (LDI :: k) 
-        // negative 
         | Apply("-",[e]) -> CE e vEnv fEnv (addCST 0 (SWAP:: SUB :: k))
-        //add "!"
+        | Apply("++", [e]) -> CE e vEnv fEnv (addCST 1 (ADD :: k))
+        | Apply("--", [e]) -> CE e vEnv fEnv (addCST 1 (SUB :: k))
         | Apply("!", [e]) -> CE e vEnv fEnv (addNOT (k))
         | Apply("&&",[b1;b2]) -> 
                  match k with
@@ -314,7 +314,7 @@ module CodeGenerationOpt =
                     | _ -> (addINCSP 1 s,offset+1)
                 ) ([], 0) decs |> fst
             printfn "k1: %A, k2: %A" k1 k2 *)
-            List.fold (allocate_instructions LocVar vEnv) k (var_decs)
+            List.fold (allocate_instructions LocVar vEnv) k (List.rev var_decs)
             
 
 
@@ -349,6 +349,9 @@ module CodeGenerationOpt =
             match optexp with
                     | None -> addCST 0 k
                     | Some e -> CE e vEnv fEnv k
+        | Inc(acc) -> CA acc vEnv fEnv (LDI :: addCST 1 (ADD :: (CA acc vEnv fEnv (addINCSP (-1) (STI :: k)))))
+        | Dec(acc) -> CA acc vEnv fEnv (LDI :: addCST 1 (SUB :: (CA acc vEnv fEnv (addINCSP (-1) (STI :: k)))))
+ 
  
     and CGCsingle vEnv fEnv outer_label k (exp, stms)=
         // First, make a label for the next GC branch
