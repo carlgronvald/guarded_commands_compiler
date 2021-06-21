@@ -4,7 +4,9 @@
 // File MicroC/Contcomp.fs of the MicroC compiler by Peter Sestoft
 
 // Author: Carl Frederik Grønvald, 16/06 - 21/06
-
+// Extensions:
+//     ++/--: Nicolai Kornerup-Bang Melin, 18/06
+//     Ternary Operator: Tobias Frederik Flensberg Thomsen, 17/06-18/06
 
 open Machine
 

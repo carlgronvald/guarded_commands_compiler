@@ -1,5 +1,7 @@
 ﻿// Michael R. Hansen 05-01-2016, 04-01-2018, 07-06-2021
 
+// Alterations: Carl Frederik Grønvald, 18/06 - 21/06 2021 (Create timed run functions)
+
 namespace GuardedCommands.Util
 
 
