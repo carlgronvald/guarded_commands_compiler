@@ -142,13 +142,16 @@ let runArgsTrace is iargs= let p = Array.ofList is
                            execcode(p,s,iargs) true
 
 
-let run is = let sw = new System.Diagnostics.Stopwatch()
-             let _  = sw.Start()
-             let stk = runArgs is [||]
-             let elabsed = int sw.ElapsedMilliseconds
-             printfn "\nStack : %s" (Array.fold (fun s n -> s + (string n) + "  ") "" stk)
-             printfn "\nRan %d miliseconds" elabsed
+let runt is = let sw = new System.Diagnostics.Stopwatch()
+              let _  = sw.Start()
+              let stk = runArgs is [||]
+              let elapsed = int sw.ElapsedMilliseconds
+              printfn "\nStack : %s" (Array.fold (fun s n -> s + (string n) + "  ") "" stk)
+              printfn "\nRan %d miliseconds" elapsed
+              elapsed
               
+let run is = runt is |> ignore
+
 let runTrace is = runArgsTrace is [||]
 
 
