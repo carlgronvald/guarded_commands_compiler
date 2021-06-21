@@ -1,0 +1,9 @@
+begin
+  a : int, 
+  b : bool,
+  c : int; 
+  a,b,c := 4,true,6;  
+  print a;
+  print b;
+  print c 
+end

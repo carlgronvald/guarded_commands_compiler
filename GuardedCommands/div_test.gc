@@ -1,0 +1,9 @@
+begin
+  a : int, 
+  b : int, 
+  res: int;
+  a := 8;
+  b := 4; 
+  res := a / b; 
+  print res
+end

@@ -1,0 +1,9 @@
+begin
+  a : int, 
+  b : int, 
+  res: bool;
+  a := 2;
+  b := 4; 
+  res := b >= a; 
+  print res
+end

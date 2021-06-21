@@ -1,0 +1,7 @@
+begin
+  i : int,
+  a : int[3];
+  i:= 2;
+  a[i] := 22;
+  print a[i]
+end
