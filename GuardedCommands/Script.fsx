@@ -15,7 +15,6 @@
 #load "CodeGenOpt.fs"
 #load "VirtualMachine.fs"
 #load "Util.fs"
-#load "Tests.fs"
 
 
 open GuardedCommands.Util
