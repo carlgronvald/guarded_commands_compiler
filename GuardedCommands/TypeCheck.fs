@@ -8,8 +8,9 @@ module TypeCheck =
 
     let bool_logic_operators = ["&&";"=";"<>";"||"]
     let int_logic_operators = ["<";">";"<=";">=";"<>";"="]
+    let char_logic_operators = ["<";">";"<=";">=";"<>";"="]
     let arithmetic_operators = ["+";"*";"/";"-"] //TODO: BINARY MINUS OPERATORY
-    let binary_operators = bool_logic_operators @ int_logic_operators @ arithmetic_operators |> distinct
+    let binary_operators = bool_logic_operators @ int_logic_operators @ char_logic_operators @ arithmetic_operators |> distinct
     let unary_int_operators = ["-"]
     let unary_bool_operators = ["!"]
     let unary_operators = unary_int_operators @ unary_bool_operators |> distinct
@@ -36,14 +37,11 @@ module TypeCheck =
     // TODO: Is accessing a global variable allowed in a function??
     /// Checks whether all paths through a statement end in a return
     let rec returning_statement = function
-        | PrintLn _ -> false
-        | Ass _ -> false
         | Return _ -> true
         | Alt(gc) -> returning_gc gc
         | Do(gc) -> returning_gc gc
         | Block(_, stms) -> List.exists returning_statement stms
-        | Call _ -> false
-        | Mass _ -> false
+        | _ -> false
 
     /// Checks whether all paths through a GC end in a return
     and returning_gc (GC(ls)) =
@@ -55,7 +53,10 @@ module TypeCheck =
     /// for global and local variables 
     let rec tcE gtenv ltenv = function                            
             | N _              -> ITyp   
-            | B _              -> BTyp   
+            | B _              -> BTyp
+            | Cconst c         -> 
+                if c |> int > 255 then failwith "Characters can only be ASCII"
+                CTyp
             | Access acc       -> tcA gtenv ltenv acc     
                    
             | Apply(f,[e]) when List.exists (fun x ->  x=f) unary_operators
@@ -81,6 +82,7 @@ module TypeCheck =
                                         | (o, ITyp, ITyp) when List.exists (fun x ->  x=o) arithmetic_operators -> ITyp
                                         | (o, ITyp, ITyp) when List.exists (fun x ->  x=o) int_logic_operators  -> BTyp
                                         | (o, BTyp, BTyp) when List.exists (fun x ->  x=o) bool_logic_operators -> BTyp 
+                                        | (o, CTyp, CTyp) when List.contains o char_logic_operators -> BTyp
                                         | _                     -> failwith(sprintf "Illegal/illtyped dyadic expression %A %s %A" e1 f e2 )
     
     /// Checks the inputs for a function or procedure
@@ -147,13 +149,12 @@ module TypeCheck =
     /// tcS gtenv ltenv s checks the well-typeness of a statement s on the basis of type environments gtenv and ltenv
     /// for global and local variables 
     and tcS gtenv ltenv = function                           
-                            | PrintLn e -> tcE gtenv ltenv e |> ignore
+                            | PrintI e -> tcE gtenv ltenv e |> ignore
+                            | PrintC e -> if tcE gtenv ltenv e <> CTyp then failwith "Trying to print non character type as character"
                             | Ass(acc,e) -> 
                                 let atyp = tcA gtenv ltenv acc
                                 let etyp = tcE gtenv ltenv e
-                                if atyp = etyp 
-                                then ()
-                                else failwith (sprintf "illtyped assignment %A = %A, %A=%A" acc e atyp etyp)                                
+                                if atyp <> etyp  then failwith (sprintf "illtyped assignment %A = %A, %A=%A" acc e atyp etyp)
                             | Mass(accs, es) -> 
                                 let listOfAccess = List.zip accs es      
                                 List.iter (fun (a,e) -> tcS gtenv ltenv (Ass(a,e))) listOfAccess

@@ -4,15 +4,16 @@ open GuardedCommands.Frontend.AST
 
 %token <int> INT
 %token <bool> BOOL
+%token <char> CHAR
 %token <string> STRING
 %token <string> NAME
-%token ITYP BTYP
+%token ITYP BTYP CTYP
 %token LP LCP LSP RP RCP RSP
 %token IF FI DO OD BEGIN END RETURN FUNCTION PROCEDURE ADDR 
 %token DEREF
-%token COMMA COLON SEMI BAR TO
+%token COMMA COLON SEMI BAR TO APP
 %token NEG PLUS MINUS TIMES AND OR EQ LE GE LT GT NEQ DIV
-%token PRINT ASG SKIP ABORT
+%token PRINT ASG SKIP ABORT PRINTC
 %token EOF
 %token HIGH
 
@@ -47,7 +48,8 @@ Prog:
 
 BasicTyp:
     BTYP                              { BTyp }
-  | ITYP                              { ITyp } 
+  | ITYP                              { ITyp }
+  | CTYP                              { CTyp }
 
 Typ:
     BasicTyp                            { $1 }
@@ -80,7 +82,8 @@ AccessList:
 
 
 Stm:
-    PRINT Exp                         { PrintLn $2 }
+    PRINT Exp                         { PrintI $2 }
+  | PRINTC Exp                        { PrintC $2 }
   | Access ASG Exp                    { Ass($1,$3)}
   | AccessList ASG ExpList            { Mass($1,$3)}
   | NAME LP ExpL RP                   { Call($1, $3 )}
@@ -115,6 +118,7 @@ Exp:
   | NAME LP ExpL RP                   { Apply($1, $3) }
   | INT                               { N $1 }
   | BOOL                              { B $1 }       
+  | CHAR                              { Cconst $1}
   | LP Exp RP                         { $2 } 
   | MINUS Exp                         { Apply("-", [$2])}
   | NEG Exp                           { Apply("!", [$2])}
