@@ -5,6 +5,11 @@
 // It must preceed TypeChecks.fs, CodeGen.fs, CodeGenOpt.fs, Util.fs in Solution Explorer
 //
 
+// Alterations:
+//    Cconst, CTyp, PrintC: Carl Frederik Grønvald, 18/06/2021
+//    Mass: Tobias Frederik Flensberg Thomsen, 14/06 - 18/06 2021
+//    Inc, Dec: Nicolai Kornerup-Bang Melin: 18/06 - 21/06 2021
+
 module AST =
 
    type Exp =                            
