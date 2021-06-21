@@ -3,6 +3,8 @@
 // A part of the program is directly copied from the file 
 // File MicroC/Contcomp.fs of the MicroC compiler by Peter Sestoft
 
+// Author: Carl Frederik Grønvald, 16/06 - 21/06
+
 
 open Machine
 
@@ -108,6 +110,8 @@ module CodeGenerationOpt =
  (* ------------------------------------------------------------------- *)
  
  (* End code directly copied from Peter Sestoft *)
+
+    /// Creates the local variable environment for a list of allocations
     let allocate_environment (kind: int -> Var) (vEnv : varEnv) (typ,x) =
         let (env, fdepth) = vEnv 
         match typ with
@@ -136,6 +140,7 @@ module CodeGenerationOpt =
         | _ -> 
             addINCSP 1 k
 
+    /// Gives the deallocate instructions for a single allocation
     let deallocate_instructions k (typ,_) =
         addINCSP -(type_size typ) k
 
@@ -145,6 +150,7 @@ module CodeGenerationOpt =
         | VarDec (typ, name) -> ((typ, name)::vds, fds)
         | FunDec (tyOpt, f, xs, body) -> (vds, (tyOpt,f,xs,body)::fds)) ([],[]) decs
 
+    /// Calls a function or procedure
     let rec function_call vEnv fEnv function_name es k =
         
         match Map.tryFind function_name fEnv with
@@ -156,12 +162,12 @@ module CodeGenerationOpt =
                               | None -> addINCSP -1 k
                               | Some _ -> k
             // Perform call
-            let k = makeCall parameters.Length lab k // TODO: not parameters.Length, but their size on the stack. Actually, I think anything passed to a function are 1 long words
+            let k = makeCall parameters.Length lab k
             
             // Add expression list
             List.fold (fun s exp -> CE exp vEnv fEnv s) k (List.rev es)
 
- /// CE e vEnv fEnv k gives the code for an expression e on the basis of a variable and a function environment and continuation k
+    /// CE e vEnv fEnv k gives the code for an expression e on the basis of a variable and a function environment and continuation k
     and CE e vEnv fEnv k = 
         match e with
         | N n          -> addCST n k
@@ -199,9 +205,7 @@ module CodeGenerationOpt =
                     CE b1 vEnv fEnv (IFNZRO labfalse :: CE b2 vEnv fEnv (addJump jumpend k2))
         | Apply("?", [e1; e2; e3]) ->   let labfalse = newLabel()
                                         let labend   = newLabel()
-                                        // CE vEnv fEnv e1 @ [IFZERO labfalse] @  CE vEnv fEnv e2 @ [GOTO labend; Label labfalse] @ CE vEnv fEnv e3  @ [Label labend]
                                         CE e1 vEnv fEnv ((IFZERO labfalse)::(CE e2 vEnv fEnv  (GOTO labend :: Label labfalse::(CE e3 vEnv fEnv (Label labend::k))))) 
-                                        //CE e1 vEnv fEnv k @ [IFZERO labfalse] @  CE e2 vEnv fEnv k @ [GOTO labend; Label labfalse] @ CE e3 vEnv fEnv k  @ 
         //add operation case 
         | Apply(o,[e1;e2])  when List.exists (fun x -> o=x) ["+";"*";"/";"<";">";"<=";">=";"<>";"=";"-"]
                            -> let ins = match o with
@@ -222,19 +226,19 @@ module CodeGenerationOpt =
         | Apply(f, es) ->   function_call vEnv fEnv f es k
         
         | Addr(acc) -> CA acc vEnv fEnv k
-        //| _                -> failwith "CE: not supported yet"
         
     and CEs es vEnv fEnv k = 
        match es with 
        | []     -> k
        | e::es' -> CE e vEnv fEnv (CEs es' vEnv fEnv k) 
  
- /// CA acc vEnv fEnv k gives the code for an access acc on the basis of a variable and a function environment and continuation k
+    /// CA acc vEnv fEnv k gives the code for an access acc on the basis of a variable and a function environment and continuation k
     and CA acc vEnv fEnv k = 
         match acc with 
         | AVar x         -> match Map.find x (fst vEnv) with
                             | (GloVar addr,_) -> addCST addr k
                             | (LocVar addr,_) -> GETBP :: ( addCST addr (ADD :: k))
+
         | AIndex(acc, e) -> 
             // We end up with adding the address of the 0th element to the index
             let k = ADD :: k
@@ -242,26 +246,15 @@ module CodeGenerationOpt =
             // Before that, we need the index
             let k = CE e vEnv fEnv k
 
-
-
             // And we also need to deref the pointer to the 0th element
             let k = LDI::k
             // And, to start with, we need that pointer
             CA acc vEnv fEnv k
             //First, we need to deref the pointer to the 0th elem
-//            let k = LDI :: k
-//            let k = CA acc vEnv fEnv k
-            
-       
-//            ADD :: k |> CA acc vEnv fEnv |> CE e vEnv fEnv
+
         | ADeref e       -> CE e vEnv fEnv k
- 
-    
 
-    
-
-
- /// CS s vEnv fEnv k gives the code for a statement s on the basis of a variable and a function environment and continuation k                            
+     /// CS s vEnv fEnv k gives the code for a statement s on the basis of a variable and a function environment and continuation k                            
     let rec CS stm vEnv fEnv k = 
         match stm with
         | PrintI e         -> CE e vEnv fEnv (PRINTI:: addINCSP -1 k) 
@@ -277,65 +270,19 @@ module CodeGenerationOpt =
  
         | Block(decs, stms) ->
 
-            let (var_decs, fun_decs) = separate_decs decs
-
-            let block_fold fn = List.fold (fun s dec ->
-                    match dec with
-                    | VarDec (typ,name) -> fn typ name s
-                    | FunDec _ -> failwith "Local function definitions are a big nono"
-                )
+            let (var_decs, _) = separate_decs decs
 
             // Start with deallocate instructions
-//            let k1 = block_fold (fun typ name s -> addINCSP -(type_size typ) s) [] decs
-//            let k2 = List.fold deallocate_instructions [] var_decs
-//            printfn "k1: %A, k2: %A" k1 k2
             let k = List.fold deallocate_instructions k var_decs
             // Then generate local variable environment
             let vEnv = List.fold (allocate_environment LocVar) vEnv var_decs
 
-                    
-
-            (*let vEnv1 = 
-                block_fold (fun typ name (env, offset) -> 
-                    (Map.add name (LocVar offset, typ) env, offset+ (type_size typ))
-                ) vEnv decs
-            let vEnv2 = List.fold (allocate_environment LocVar) vEnv var_decs
-            printfn "k1: %A, k2: %A" vEnv1 vEnv2*)
-            
-//             let (vEnv, alloc_instrs) = List.fold (allocate LocVar)  TODO
-            
             // Then we do our statements
             let k = CSs stms vEnv fEnv k
 
             // Aaaand, we allocate (which actually happens first)
-            (*let k1 = List.fold (allocate_instructions LocVar vEnv) [] (var_decs)
-            let k2 =
-                block_fold (fun typ name (s, offset) ->
-                    match typ with
-                    | ATyp(_, Some i) ->
-                        let s = addINCSP i s
-                        // We need the absolute path to our array, so we need to add the base pointer
-                        let s = GETBP :: (addCST (offset+1) (ADD :: s))
-                
-                        (s,offset+i+1)
-                    | _ -> (addINCSP 1 s,offset+1)
-                ) ([], 0) decs |> fst
-            printfn "k1: %A, k2: %A" k1 k2 *)
             List.fold (allocate_instructions LocVar vEnv) k (List.rev var_decs)
-            
-
-
-//            block_fold (fun typ name (s, offset) ->
-//                match typ with
-//                | ATyp(_, Some i) ->
-//                    let s = addINCSP i s
-                    // We need the absolute path to our array, so we need to add the base pointer
-//                    let s = GETBP :: (addCST (offset+1) (ADD :: s))
-
-//                    (s,offset+i+1)
-//                | _ -> (addINCSP 1 s,offset+1)
-//            ) (k, 0) decs |> fst
-
+        
         | Alt(gc) -> 
             let (outer_label, k) = addLabel k
             let k = STOP :: k
@@ -374,6 +321,7 @@ module CodeGenerationOpt =
 
         // Just read this all bottom up
 
+    /// Does code generation for guarded commands
     and CGC (GC(ls)) vEnv fEnv k outer_label =
         List.fold (CGCsingle vEnv fEnv outer_label) k (List.rev ls) // We gotta do it in reverse
 
@@ -385,7 +333,8 @@ module CodeGenerationOpt =
  (* ------------------------------------------------------------------- *)
  
  (* Build environments for global variables and functions *)
- 
+
+    /// Finds all the variable declarations in a function declaration
     let generateParamDecs xs =
         List.map (fun (d:Dec) -> 
             match d with
@@ -396,9 +345,10 @@ module CodeGenerationOpt =
     /// Register functions so we can do mutual recursion
     let preDecFuncs decs =
         List.fold (fun s (tyOpt, f, xs, _) ->
-                Map.add f (newLabel(), tyOpt, generateParamDecs xs) s
+                Map.add f (newLabel(), tyOpt, (generateParamDecs xs)) s
             ) Map.empty decs
-
+    
+    /// Creates the instruction for declaring a single function
     let decFunc vEnv fEnv k (tyOpt, f, xs, body) =
         let (lab, _, parameters) = Map.find f fEnv
         //let parameters = generateParamDecs xs
@@ -420,8 +370,7 @@ module CodeGenerationOpt =
 
         Label lab :: CS body vEnv_inner fEnv k
 
-        
-
+    /// Creates the global environment
     let makeGlobalEnvs decs =
         // Start out by filtering out variable and function declarations
         let (vardecs, fundecs) = separate_decs decs

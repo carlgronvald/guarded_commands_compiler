@@ -23,6 +23,7 @@ module CodeGeneration =
     type ParamDecs = (Typ * string) list
     type funEnv = Map<string, label * Typ option * ParamDecs>
 
+    /// A list of binary expressions that only need simple instructions
     let simple_binary_expressions = ["+";"*";"/";"-";
         "<";">";"<=";">=";
         "<>";"="]
@@ -76,6 +77,7 @@ module CodeGeneration =
         | VarDec(typ, string) -> allocate LocVar (typ, string) vEnv false
         | FunDec(_) -> failwith "Cannot locally define a function"
 
+    /// Creates the code to perform a function call
     let rec function_call vEnv fEnv function_name es =
         match Map.tryFind function_name fEnv with
         | None -> failwith "Function call to nonexistant function" 
@@ -119,16 +121,14 @@ module CodeGeneration =
         | Apply(o,[e1;e2]) when List.exists (fun x -> o=x) simple_binary_expressions
                               -> let ins = binary_expression_bytecode o
                                  CE vEnv fEnv e1 @ CE vEnv fEnv e2 @ ins 
-        | Apply("<", [e1;e2]) -> 
-                     CE vEnv fEnv e1 @ CE vEnv fEnv e2 @ [LT]
         | Apply(function_name, es) ->
             function_call vEnv fEnv function_name es
         | Addr acc -> CA vEnv fEnv acc
         | _            -> failwith "CE: not supported yet"
         
- /// CA vEnv fEnv acc gives the code for an access acc on the basis of a variable and a function environment
- ///
- /// CA = Code (generation for an) Access
+    /// CA vEnv fEnv acc gives the code for an access acc on the basis of a variable and a function environment
+    ///
+    /// CA = Code (generation for an) Access
     and CA vEnv fEnv = function | AVar x ->
                                     match Map.find x (fst vEnv) with
                                     | (GloVar addr,_) -> [CSTI addr]
@@ -139,8 +139,8 @@ module CodeGeneration =
    
  
                        
- /// CS vEnv fEnv s gives the code for a statement s on the basis of a variable and a function environment                          
- /// Code (generation for a) Statement
+    /// CS vEnv fEnv s gives the code for a statement s on the basis of a variable and a function environment                          
+    /// Code (generation for a) Statement
     let rec CS vEnv fEnv = function
         | PrintI e        -> CE vEnv fEnv e @ [PRINTI; INCSP -1] 
         
