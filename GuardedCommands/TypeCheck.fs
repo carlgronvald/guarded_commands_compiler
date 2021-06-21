@@ -11,7 +11,7 @@ module TypeCheck =
     let char_logic_operators = ["<";">";"<=";">=";"<>";"="]
     let arithmetic_operators = ["+";"*";"/";"-"] //TODO: BINARY MINUS OPERATORY
     let binary_operators = bool_logic_operators @ int_logic_operators @ char_logic_operators @ arithmetic_operators |> distinct
-    let unary_int_operators = ["-"]
+    let unary_int_operators = ["-"; "++"; "--"]
     let unary_bool_operators = ["!"]
     let unary_operators = unary_int_operators @ unary_bool_operators |> distinct
     let return_prefix = "return "
@@ -65,11 +65,19 @@ module TypeCheck =
             | Apply(f,[e1;e2]) when List.exists (fun x ->  x=f) binary_operators
                             -> tcDyadic gtenv ltenv f e1 e2   
 
+            // e1 ? e2 : e3 
+            | Apply("?", [e1;e2;e3]) -> if tcE gtenv ltenv e1 <> BTyp then failwith ("Illigal type for conditional expression")  else
+                                        if tcE gtenv ltenv e2  <> tcE gtenv ltenv e3 then failwith ("The two branches in conditional should be the same type!") else
+                                            tcE gtenv ltenv e2
+
             | Apply(f, es) -> // Function call
                 tcNaryFunction gtenv ltenv f es
 
             | Addr(acc) ->
                 tcA gtenv ltenv acc |> PTyp
+            
+
+
 
             //| s                -> failwith (sprintf "tcE: not supported yet %A" s)
 
@@ -155,6 +163,7 @@ module TypeCheck =
                                 let atyp = tcA gtenv ltenv acc
                                 let etyp = tcE gtenv ltenv e
                                 if atyp <> etyp  then failwith (sprintf "illtyped assignment %A = %A, %A=%A" acc e atyp etyp)
+
                             | Mass(accs, es) -> 
                                 let listOfAccess = List.zip accs es      
                                 List.iter (fun (a,e) -> tcS gtenv ltenv (Ass(a,e))) listOfAccess
@@ -180,6 +189,16 @@ module TypeCheck =
                             | Alt(gc) -> tcGC gtenv ltenv gc
                             | Do(gc) -> tcGC gtenv ltenv gc
                             | Call(f, es) -> tcNaryProcedure gtenv ltenv f es
+                            | Inc(acc) ->
+                                let atyp = tcA gtenv ltenv acc
+                                if atyp = ITyp 
+                                then ()
+                                else failwith "Can only increment integers"
+                            | Dec(acc) ->
+                                let atyp = tcA gtenv ltenv acc
+                                if atyp = ITyp 
+                                then ()
+                                else failwith "Can only deincrement integers"
 
     /// Handles preparing for function declarations.
     and tcFunDecOuter gtenv topt f decs stm =

@@ -63,6 +63,7 @@ rule tokenize =
   | "->"        { TO }
   | ":="        { ASG   }
   | "!"         { NEG }
+  | "?"         { COND }
   | "&&"        { AND }
   | "<>"        { NEQ }
   | "<"         { LT }
@@ -73,6 +74,8 @@ rule tokenize =
   | "-"         { MINUS }
   | "="         { EQ }
   | "+"         { PLUS }
+  | "++"        { PLUSPLUS }
+  | "--"        { MINUSMINUS }
   | "/"         { DIV }
   | "||"        { OR }
   | "&"         { ADDR }

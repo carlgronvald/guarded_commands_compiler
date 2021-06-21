@@ -99,6 +99,8 @@ module CodeGeneration =
  
         | Apply("-", [e]) -> CE vEnv fEnv e @  [CSTI 0; SWAP; SUB]
         | Apply("!", [e]) -> CE vEnv fEnv e @  [NOT]
+        | Apply("++", [e]) -> CE vEnv fEnv e @  [CSTI 1; ADD]
+        | Apply("--", [e]) -> CE vEnv fEnv e @  [CSTI 1; SUB]
  
         | Apply("&&",[b1;b2]) -> let labend   = newLabel()
                                  let labfalse = newLabel()
@@ -110,6 +112,10 @@ module CodeGeneration =
                                  CE vEnv fEnv b1 @ [IFNZRO labtrue] @ CE vEnv fEnv b2
                                  @ [GOTO labend; Label labtrue; CSTI 1; Label labend]
 
+        | Apply("?", [e1; e2; e3]) ->  let labfalse = newLabel()
+                                       let labend = newLabel()
+                                       CE vEnv fEnv e1 @ [IFZERO labfalse] @  CE vEnv fEnv e2 @ [GOTO labend; Label labfalse] @ CE vEnv fEnv e3  @ [Label labend]
+      
         | Apply(o,[e1;e2]) when List.exists (fun x -> o=x) simple_binary_expressions
                               -> let ins = binary_expression_bytecode o
                                  CE vEnv fEnv e1 @ CE vEnv fEnv e2 @ ins 
@@ -140,12 +146,11 @@ module CodeGeneration =
         
         | PrintC e        -> CE vEnv fEnv e  @ [PRINTC; INCSP -1]
 
+        | Mass(acc, e)     -> let zipped = List.zip acc e
+                              List.collect (fun (a,e) -> CS vEnv fEnv (Ass(a,e))) zipped
+ 
         | Ass(acc,e)       -> CA vEnv fEnv acc @ CE vEnv fEnv e @ [STI; INCSP -1]
         
-        | Mass(accs, es)   ->
-            let listOfAccess = List.zip accs es
-            List.collect (fun (a,e) -> CS vEnv fEnv (Ass(a,e))) listOfAccess
- 
         | Block([],stms) ->   CSs vEnv fEnv stms
         | Block(declarations, stms) ->
             let (vEnv, dec_instructions, dealloc_instructions) =
@@ -178,6 +183,9 @@ module CodeGeneration =
 
         | Call(f, expressions) ->
             function_call vEnv fEnv f expressions
+
+        | Inc(acc) -> CA vEnv fEnv acc @ [LDI; CSTI 1; ADD] @ CA vEnv fEnv acc @ [INCSP (-1); STI]
+        | Dec(acc) -> CA vEnv fEnv acc @ [LDI; CSTI 1; SUB] @ CA vEnv fEnv acc @ [INCSP (-1); STI]
  
     and CSs vEnv fEnv stms = List.collect (CS vEnv fEnv) stms 
  

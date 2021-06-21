@@ -168,9 +168,9 @@ module CodeGenerationOpt =
         | B b          -> addCST (if b then 1 else 0) k
         | Cconst c     -> addCST (c |> int) k
         | Access acc  -> CA acc vEnv fEnv (LDI :: k) 
-        // negative 
         | Apply("-",[e]) -> CE e vEnv fEnv (addCST 0 (SWAP:: SUB :: k))
-        //add "!"
+        | Apply("++", [e]) -> CE e vEnv fEnv (addCST 1 (ADD :: k))
+        | Apply("--", [e]) -> CE e vEnv fEnv (addCST 1 (SUB :: k))
         | Apply("!", [e]) -> CE e vEnv fEnv (addNOT (k))
         | Apply("&&",[b1;b2]) -> 
                  match k with
@@ -197,7 +197,11 @@ module CodeGenerationOpt =
             | _ ->  let (jumpend,  k1) = makeJump k
                     let (labfalse, k2) = addLabel (addCST 1 k1)
                     CE b1 vEnv fEnv (IFNZRO labfalse :: CE b2 vEnv fEnv (addJump jumpend k2))
-        
+        | Apply("?", [e1; e2; e3]) ->   let labfalse = newLabel()
+                                        let labend   = newLabel()
+                                        // CE vEnv fEnv e1 @ [IFZERO labfalse] @  CE vEnv fEnv e2 @ [GOTO labend; Label labfalse] @ CE vEnv fEnv e3  @ [Label labend]
+                                        CE e1 vEnv fEnv ((IFZERO labfalse)::(CE e2 vEnv fEnv  (GOTO labend :: Label labfalse::(CE e3 vEnv fEnv (Label labend::k))))) 
+                                        //CE e1 vEnv fEnv k @ [IFZERO labfalse] @  CE e2 vEnv fEnv k @ [GOTO labend; Label labfalse] @ CE e3 vEnv fEnv k  @ 
         //add operation case 
         | Apply(o,[e1;e2])  when List.exists (fun x -> o=x) ["+";"*";"/";"<";">";"<=";">=";"<>";"=";"-"]
                            -> let ins = match o with
@@ -264,10 +268,10 @@ module CodeGenerationOpt =
 
         | PrintC e         -> CE e vEnv fEnv (PRINTC :: addINCSP -1 k)
  
+        | Mass(accs, es) ->
+            List.fold (fun k (acc, e) -> CS (Ass(acc,e)) vEnv fEnv k ) k (List.zip accs es)
+
         | Ass(acc,e)       -> CA acc vEnv fEnv (CE e vEnv fEnv (STI:: addINCSP -1 k))
-        
-        | Mass(accs, es) -> 
-            List.fold (fun s (acc, e) -> CS (Ass(acc,e)) vEnv fEnv k ) k (List.zip accs es)
 
         | Block([],stms)   -> CSs stms vEnv fEnv k
  
@@ -352,6 +356,9 @@ module CodeGenerationOpt =
             match optexp with
                     | None -> addCST 0 k
                     | Some e -> CE e vEnv fEnv k
+        | Inc(acc) -> CA acc vEnv fEnv (LDI :: addCST 1 (ADD :: (CA acc vEnv fEnv (addINCSP (-1) (STI :: k)))))
+        | Dec(acc) -> CA acc vEnv fEnv (LDI :: addCST 1 (SUB :: (CA acc vEnv fEnv (addINCSP (-1) (STI :: k)))))
+ 
  
     and CGCsingle vEnv fEnv outer_label k (exp, stms)=
         // First, make a label for the next GC branch
