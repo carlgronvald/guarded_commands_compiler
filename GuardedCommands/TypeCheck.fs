@@ -1,6 +1,11 @@
 ﻿namespace GuardedCommands.Frontend
 // Michael R. Hansen 06-01-2016 , 04-01-2018, 07-06 2021
 
+// Author: Carl Frederik Grønvald, 11/06 - 21/06
+// Extensions:
+//     ++/--: Nicolai Kornerup-Bang Melin, 18/06
+//     Ternary Operator: Tobias Frederik Flensberg Thomsen, 17/06-18/06
+        
 open GuardedCommands.Frontend.AST
 
 module TypeCheck = 

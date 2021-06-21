@@ -1,7 +1,11 @@
 ﻿namespace GuardedCommands.Backend
 // Michael R. Hansen 05-01-2016, 04-01-2018, 07-07-2021
 // This file is obtained by an adaption of the file MicroC/Comp.fs by Peter Sestoft
-
+// Author: Nicolai Kornerup-Bang Melin, Carl Frederik Grønvald, 11/06 - 21/06
+// Extensions:
+//     ++/--: Nicolai Kornerup-Bang Melin, 18/06
+//     Ternary Operator: Tobias Frederik Flensberg Thomsen, 17/06-18/06
+//     PrintC: Carl Frederik Grønvald, 18/06
 open Machine
 
 open GuardedCommands.Frontend.AST

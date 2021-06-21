@@ -1,4 +1,7 @@
-﻿// Author (to extensions): Tobias Thomsen, 11/06 - 21/06
+﻿// Author: Tobias Thomsen, 11/06 - 21/06
+// Extensions:
+//     printC, charconst, char: Carl Frederik Grønvald, 18/06
+//     ++, -- : Nicolai Kornerup-Bang Melin             16/06 - 18/06
 %{
 open GuardedCommands.Frontend.AST
 %}
