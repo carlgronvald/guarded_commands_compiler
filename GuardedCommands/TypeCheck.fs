@@ -9,7 +9,7 @@ module TypeCheck =
     let bool_logic_operators = ["&&";"=";"<>";"||"]
     let int_logic_operators = ["<";">";"<=";">=";"<>";"="]
     let char_logic_operators = ["<";">";"<=";">=";"<>";"="]
-    let arithmetic_operators = ["+";"*";"/";"-"] //TODO: BINARY MINUS OPERATORY
+    let arithmetic_operators = ["+";"*";"/";"-"]
     let binary_operators = bool_logic_operators @ int_logic_operators @ char_logic_operators @ arithmetic_operators |> distinct
     let unary_int_operators = ["-"; "++"; "--"]
     let unary_bool_operators = ["!"]
@@ -34,7 +34,6 @@ module TypeCheck =
             Map.containsKey n env) [name;procedure_prefix+name;return_prefix+name]
         then failwith ("Duplicate declaration of " + name)
     
-    // TODO: Is accessing a global variable allowed in a function??
     /// Checks whether all paths through a statement end in a return
     let rec returning_statement = function
         | Return _ -> true
@@ -59,11 +58,11 @@ module TypeCheck =
                 CTyp
             | Access acc       -> tcA gtenv ltenv acc     
                    
-            | Apply(f,[e]) when List.exists (fun x ->  x=f) unary_operators
-                            -> tcMonadic gtenv ltenv f e        
+            | Apply(o,[e]) when List.contains o unary_operators
+                            -> tcMonadic gtenv ltenv o e        
 
-            | Apply(f,[e1;e2]) when List.exists (fun x ->  x=f) binary_operators
-                            -> tcDyadic gtenv ltenv f e1 e2   
+            | Apply(o,[e1;e2]) when List.contains o binary_operators
+                            -> tcDyadic gtenv ltenv o e1 e2   
 
             // e1 ? e2 : e3 
             | Apply("?", [e1;e2;e3]) -> if tcE gtenv ltenv e1 <> BTyp then failwith ("Illigal type for conditional expression")  else
@@ -75,21 +74,16 @@ module TypeCheck =
 
             | Addr(acc) ->
                 tcA gtenv ltenv acc |> PTyp
-            
-
-
-
-            //| s                -> failwith (sprintf "tcE: not supported yet %A" s)
 
     and tcMonadic gtenv ltenv f e = match (f, tcE gtenv ltenv e) with
-                                    | (o, ITyp) when List.exists (fun x -> x=o) unary_int_operators -> ITyp
-                                    | (o, BTyp) when List.exists (fun x -> x=o) unary_bool_operators -> BTyp
+                                    | (o, ITyp) when List.contains o unary_int_operators -> ITyp
+                                    | (o, BTyp) when List.contains o unary_bool_operators -> BTyp
                                     | s           -> failwith (sprintf "illegal/illtyped monadic expression %A" s)
    
     and tcDyadic gtenv ltenv f e1 e2 = match (f, tcE gtenv ltenv e1, tcE gtenv ltenv e2) with
-                                        | (o, ITyp, ITyp) when List.exists (fun x ->  x=o) arithmetic_operators -> ITyp
-                                        | (o, ITyp, ITyp) when List.exists (fun x ->  x=o) int_logic_operators  -> BTyp
-                                        | (o, BTyp, BTyp) when List.exists (fun x ->  x=o) bool_logic_operators -> BTyp 
+                                        | (o, ITyp, ITyp) when List.contains o arithmetic_operators -> ITyp
+                                        | (o, ITyp, ITyp) when List.contains o int_logic_operators  -> BTyp
+                                        | (o, BTyp, BTyp) when List.contains o bool_logic_operators -> BTyp 
                                         | (o, CTyp, CTyp) when List.contains o char_logic_operators -> BTyp
                                         | _                     -> failwith(sprintf "Illegal/illtyped dyadic expression %A %s %A" e1 f e2 )
     
@@ -111,7 +105,7 @@ module TypeCheck =
         
         match function_parameter_type gtenv f types.Length with
         | None -> ()
-        | Some(_) -> failwith ("Function " + f + " was not supplied enough parameters! It got " + (string)types.Length + ", but needs more TODO:HOW MANY?")
+        | Some(_) -> failwith ("Function " + f + " was not supplied enough parameters! It got " + (string)types.Length + ", but needs more?")
         List.mapi check_type types |> ignore
 
     and tcNaryFunction gtenv ltenv f es =
@@ -181,7 +175,6 @@ module TypeCheck =
                                 | Some(exp) -> // If we are supposed to have a return type, we actually have three options
                                                // We could 1) be inside a function with the same return type, which is great
                                                // Or 2), be inside a function with a different return type, which is not good
-                                               // Or 3), not be inside a function at all! also not good.
                                     match current_function_return_type ltenv with
                                     | Some(typ) ->  if not (tcE gtenv ltenv exp = typ) then failwith "Trying to return wrong type from function."
                                     | None -> failwith "Typed return statement must be inside a function"
@@ -208,7 +201,8 @@ module TypeCheck =
             | None -> Map.add (procedure_prefix + f) ITyp gtenv
             | Some(typ) -> Map.add (return_prefix + f) typ gtenv
 
-        let (_, types) = tcLDecs gtenv true (Map.empty, []) decs //TODO maybe split tcLDecs
+        let (_, types) = tcLDecs gtenv true (Map.empty, []) decs
+
         // Add function input types to the global environment so we can type check them later
         let gtenv = 
             List.mapi (fun i x -> ((function_parameter_name f i),x)) types
