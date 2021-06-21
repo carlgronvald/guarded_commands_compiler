@@ -166,6 +166,7 @@ module CodeGenerationOpt =
         match e with
         | N n          -> addCST n k
         | B b          -> addCST (if b then 1 else 0) k
+        | Cconst c     -> addCST (c |> int) k
         | Access acc  -> CA acc vEnv fEnv (LDI :: k) 
         | Apply("-",[e]) -> CE e vEnv fEnv (addCST 0 (SWAP:: SUB :: k))
         | Apply("++", [e]) -> CE e vEnv fEnv (addCST 1 (ADD :: k))
@@ -263,7 +264,9 @@ module CodeGenerationOpt =
  /// CS s vEnv fEnv k gives the code for a statement s on the basis of a variable and a function environment and continuation k                            
     let rec CS stm vEnv fEnv k = 
         match stm with
-        | PrintLn e        -> CE e vEnv fEnv (PRINTI:: addINCSP -1 k) 
+        | PrintI e         -> CE e vEnv fEnv (PRINTI:: addINCSP -1 k) 
+
+        | PrintC e         -> CE e vEnv fEnv (PRINTC :: addINCSP -1 k)
  
         | Mass(accs, es) ->
             List.fold (fun k (acc, e) -> CS (Ass(acc,e)) vEnv fEnv k ) k (List.zip accs es)
@@ -361,7 +364,7 @@ module CodeGenerationOpt =
         // First, make a label for the next GC branch
         let (nextLabel, k) = addLabel k
         // Then, if we don't hit the next state, we jump back to the outer label
-        let k = addJump (GOTO outer_label) k
+        let k = addGOTO outer_label k
         // We deal with the statements
         let k = CSs stms vEnv fEnv k
         // If the expression is false, we go to the next branch

@@ -1,0 +1,12 @@
+begin
+    x: int,
+    function f(x: int, y:bool): int = {
+		print x;
+		if y -> x:=4
+		| !y  -> x:=6
+		fi;
+		return x+1
+		};
+    x:= f(2, true);
+    print x
+end

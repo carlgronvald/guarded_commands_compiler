@@ -119,7 +119,7 @@ let rec execcode(p: int[], s: int[], iargs: int[]) trace =
         sp := !sp-p.[!pc+1]; bp := s.[!sp-1]; pc := s.[!sp-2];  sp := !sp-2 
         s.[!sp] <- res            
     | i when i=CODEPRINTI -> System.Console.WriteLine(string s.[!sp] + " ") ; pc := !pc+1  
-    | i when i=CODEPRINTC -> System.Console.WriteLine((char)(s.[!sp])); pc := !pc+1 
+    | i when i=CODEPRINTC -> System.Console.Write((char)(s.[!sp])); pc := !pc+1 
     | i when i=CODELDARGS -> let k = ref 0
                              while !k< iargs.Length do  // Push commandline arguments
                                 sp:= !sp+1; s.[!sp] <- iargs.[!k] ; k:= !k + 1 

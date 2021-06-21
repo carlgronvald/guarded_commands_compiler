@@ -9,7 +9,9 @@ let keyword s =
     match s with
     | "bool"      -> BTYP
     | "int"       -> ITYP
-    | "print"     -> PRINT 
+    | "char"      -> CTYP
+    | "print"     -> PRINT
+    | "printc"    -> PRINTC
     | "skip"      -> SKIP
     | "abort"     -> ABORT
     | "begin"     -> BEGIN
@@ -35,13 +37,19 @@ let int = digit+
 let identifier  = char(char|digit|['_'])*
 let quote                 = '\"'
 let StringConst           = quote ([^'\"'])* quote
-
+let singlequote = '\''
+let charconst = singlequote ([^'\'']) singlequote
+let commentStart = "//"
+let comment = commentStart ([^'\n'])*
 
 rule tokenize = 
   parse
+  | comment     { tokenize lexbuf }
   | whitespace  { tokenize lexbuf }
   | newline     { lexbuf.EndPos <- lexbuf.EndPos.NextLine; tokenize lexbuf }
   | int         { INT<| Int32.Parse(Encoding.UTF8.GetString(lexbuf.Lexeme)) }
+  | charconst   { CHAR <| Encoding.UTF8.GetChars(lexbuf.Lexeme).[1] }
+  | "'\\n'"       { CHAR <| '\n'}
   | "("         { LP  } 
   | ")"         { RP  }
   | "["         { LSP }

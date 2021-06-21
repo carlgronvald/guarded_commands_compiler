@@ -10,6 +10,7 @@ module AST =
    type Exp =                            
          | N  of int                   (* Integer constant            *)
          | B of bool                   (* Boolean constant            *)
+         | Cconst of char              (* Char constant               *)
          | Access of Access            (* x    or  ^p    or  a[e]     *)
          | Addr of Access              (* &x   or  &p^   or  &a[e]    *)
          | Apply of string * Exp list  (* Function application        *)
@@ -20,7 +21,8 @@ module AST =
           | ADeref of Exp              (* Pointer dereferencing  p^   *)
 
    type Stm  =                            
-          | PrintLn of Exp               (* Print                          *) 
+          | PrintI of Exp                (* Print something as an integer  *) 
+          | PrintC of Exp                (* Print something as a character*)
           | Ass of Access * Exp          (* x:=e  or  p^:=e  or  a[e]:=e   *)
           | Mass of Access list * Exp list 
           | Return of Exp option         (* Return from function           *)   
@@ -41,6 +43,7 @@ module AST =
    and Typ  = 
          | ITyp                          (* Type int                    *)
          | BTyp                          (* Type bool                   *)
+         | CTyp                          (* Type char                   *)
          | ATyp of Typ * int option      (* Type array                  *)
          | PTyp of Typ                   (* Type pointer                *)
          | FTyp of Typ list * Typ option (* Type function and procedure *)

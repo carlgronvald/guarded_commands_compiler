@@ -1,0 +1,34 @@
+begin 
+	a : char[5],
+	procedure print_second_if_different(c1 : char, c2 : char) = {
+		if c1 = c2 -> printc 'e'//Hi mom!
+		 | c1 <> c2 -> printc c2
+		fi;
+		printc '\n'
+	};
+	a[2] := 'l';
+	a[1] := 'o';
+	print_second_if_different(a[1], a[2]);
+	a[1] := 'l';
+	print_second_if_different(a[1], a[2]);
+	if 'H' > 'h'  -> printc '!'
+	 | 'H' <= 'h' -> printc ':'; printc '('
+	fi;
+	printc '\n';
+	if 'a' < 'b' -> printc 'y'; printc 'e'; printc 's'
+	 | 'a' >= 'b' -> printc 'n'; printc 'o'
+	fi;
+	printc '\n';
+	printc 'H';
+	printc 'e';
+	printc 'l';
+	printc 'l';
+	printc 'o';
+	printc ' ';
+	printc 'W';
+	printc 'o';
+	printc 'r';
+	printc 'l';
+	printc 'd';
+	printc '!'
+end

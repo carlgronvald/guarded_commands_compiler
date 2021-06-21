@@ -142,7 +142,9 @@ module CodeGeneration =
  /// CS vEnv fEnv s gives the code for a statement s on the basis of a variable and a function environment                          
  /// Code (generation for a) Statement
     let rec CS vEnv fEnv = function
-        | PrintLn e        -> CE vEnv fEnv e @ [PRINTI; INCSP -1] 
+        | PrintI e        -> CE vEnv fEnv e @ [PRINTI; INCSP -1] 
+        
+        | PrintC e        -> CE vEnv fEnv e  @ [PRINTC; INCSP -1]
 
         | Mass(acc, e)     -> let zipped = List.zip acc e
                               List.collect (fun (a,e) -> CS vEnv fEnv (Ass(a,e))) zipped

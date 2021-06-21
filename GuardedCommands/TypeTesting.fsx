@@ -18,7 +18,7 @@ let type_checking_tree_2 =
         [
             FunDec(Some ITyp, "g", [], Return (Some (Exp.N 2)));
             FunDec(None, "f", [], 
-                PrintLn (Apply("+", [Apply("g",[]); Exp.N 2])))
+                PrintI (Apply("+", [Apply("g",[]); Exp.N 2])))
                 ],
         [Call("f", [])]
     )
@@ -34,7 +34,7 @@ let type_failing_tree_2 =
         [
             FunDec(Some BTyp, "g", [], Return (Some (Exp.N 2)));
             FunDec(None, "f", [], 
-                PrintLn (Apply("+", [Apply("g",[]); Exp.N 2])))
+                PrintI (Apply("+", [Apply("g",[]); Exp.N 2])))
                 ],
         [Call("f", [])]
     )
@@ -44,7 +44,7 @@ let type_failing_tree_3 =
         [
             FunDec(Some BTyp, "g", [], Return (Some (Exp.B true)));
             FunDec(None, "f", [], 
-                PrintLn (Apply("+", [Apply("g",[]); Exp.N 2])))
+                PrintI (Apply("+", [Apply("g",[]); Exp.N 2])))
                 ],
         [Call("f", [])]
     )
@@ -54,7 +54,7 @@ let type_failing_tree_4 =
         [
             FunDec(Some ITyp, "g", [VarDec(ITyp, "k")], Return (Some (Exp.N 2)));
             FunDec(None, "f", [], 
-                PrintLn (Apply("+", [Apply("g",[]); Exp.N 2])))
+                PrintI (Apply("+", [Apply("g",[]); Exp.N 2])))
                 ],
         [Call("f", [])]
     )
@@ -65,7 +65,7 @@ let type_checking_tree_3=
             VarDec(ITyp, "l");
             FunDec(Some ITyp, "g", [VarDec(ITyp, "k")], Return (Some (Exp.N 2)));
             FunDec(None, "f", [VarDec(ITyp, "o")], 
-                PrintLn (Apply("+", [Apply("g",[Access(AVar("o"))]); Exp.N 2])))
+                PrintI (Apply("+", [Apply("g",[Access(AVar("o"))]); Exp.N 2])))
                 ],
         [Call("f", [Access(AVar("l"))])]
     )
@@ -125,15 +125,15 @@ let type_checking_tree_6 =
 /// Check that all paths must return a value
 let type_failing_tree_7 =
     P(
-        [FunDec(Some ITyp, "f", [], PrintLn (Exp.N 2))],
-        [PrintLn ( Apply ("f", []) )]
+        [FunDec(Some ITyp, "f", [], PrintI (Exp.N 2))],
+        [PrintI ( Apply ("f", []) )]
     )
 
 /// Check that when all paths return a value, it type checks
 let type_checking_tree_7 =
     P(
-        [FunDec(Some ITyp, "f", [], Block([], [PrintLn (Exp.N 2); Return (Some (Exp.N 3))]))],
-        [PrintLn ( Apply ("f", []) )]
+        [FunDec(Some ITyp, "f", [], Block([], [PrintI (Exp.N 2); Return (Some (Exp.N 3))]))],
+        [PrintI ( Apply ("f", []) )]
     )
 
 let test_failing_program program name=
