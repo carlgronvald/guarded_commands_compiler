@@ -28,6 +28,8 @@ module AST =
           | Do of GuardedCommand         (* Repetition statement           *) 
           | Block of Dec list * Stm list (* Block: grouping and scope      *)
           | Call of string * Exp list    (* Procedure call                 *)
+          | Inc of Access                (* ++i;                           *)
+          | Dec of Access                (* --i;                           *)
                
    and GuardedCommand = GC of (Exp * Stm list) list (* Guarded commands    *)
 

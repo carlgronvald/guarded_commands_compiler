@@ -151,49 +151,62 @@ let test_passing_program program name =
     tcP program
     printfn "Passing program %s passed successfully " name
 
-// Unsuccesful attempt at more sweeping property testing below
-(* let conf = {Config.Quick with MaxTest=10000; EndSize=1000}
-Check.All conf
+type BinaryOp = BOP of string
+let binaryIntOps = ["="; "<>"; "/"; "*"; "-"; "+"; "<"; ">"; "<="; ">="]
+let binaryBoolOps = ["="; "<>"; "&&"; "||"]
+let binaryOps = binaryIntOps @ binaryBoolOps |> Set.ofList |> Set.toList
 
-let mutable nn = 0
-let type_check (p:Program) =
-    try
-        tcP p
-        printfn "program %A" p
-        nn <- nn+1
-    with
-    | _ -> ()
+type Generators =
+    static member BinaryOp() =
+        { new Arbitrary<BinaryOp>() with
+            override x.Generator =
+                binaryOps
+                |> Gen.elements 
+                |> Gen.map BOP
+        }
+Arb.register<Generators>() |> ignore
 
-Check.One (conf, type_check)
+type Properties =
+    //Check that address and deref are inverse
+    static member type_check_addr_deref (typ:Typ) =
+        let gtenv = Map.add "a" typ Map.empty
+        let e1 = Access(ADeref(Addr(AVar("a"))))
+        let e2 = Access(AVar("a"))
+        tcE gtenv Map.empty e1 = tcE gtenv Map.empty e2
 
-let count_welltyped_programs n =
-    let counts = 
-        List.map (fun x -> 
-            try 
-                printfn "%A" x
-                tcP x
-                1
+    /// Chck that the inner type of an array is returned when indexing the array
+    static member type_check_arr_index (typ:Typ) =
+        let gtenv = Map.add "a" typ Map.empty |> Map.add "b" (ATyp (typ,Some 3))
+        let e1 = Access(AIndex(AVar "b", Exp.N 1))
+        let e2 = Access(AVar("a"))
+        tcE gtenv Map.empty e1 = tcE gtenv Map.empty e2
+    
+    /// Check that local variables are preferred over global variables
+    static member type_check_local_global (gtyp:Typ) (ltyp:Typ) =
+        let gtenv = Map.add "a" gtyp Map.empty
+        let ltenv = Map.add "a" ltyp Map.empty
+        let e = Access(AVar("a"))
+        tcE gtenv ltenv e = ltyp
+    
+    /// Check that binary operators work correctly (Types must be correct, and types can't be incorrect)
+    static member type_check_binary_operators (typ1:Typ) (typ2:Typ) (BOP(op)) =
+        let gtenv = Map.add "a" typ1 Map.empty |> Map.add "b" typ2
+        let e = Apply(op, [Access(AVar("a")); Access(AVar("b"))])
+        match (typ1, typ2) with
+        | (ITyp, ITyp) when List.contains op binaryIntOps->
+            tcE gtenv Map.empty e |> ignore
+            true
+        | (BTyp, BTyp) when List.contains op binaryBoolOps ->
+            tcE gtenv Map.empty e |> ignore
+            true
+        | (_, _) -> 
+            try
+                tcE gtenv Map.empty e |> ignore
+                false
             with
-            | _ -> 0
-        ) (Arb.generate<Program> |> Gen.sample 0 n)
-    List.sum counts
-
-printf "Ran %i programs, got %i welltyped" 100 (count_welltyped_programs 100) |> ignore *) 
-
-let type_check_addr_deref (typ:Typ) =
-    let gtenv = Map.add "a" typ Map.empty
-    let e1 = Access(ADeref(Addr(AVar("a"))))
-    let e2 = Access(AVar("a"))
-    tcE gtenv Map.empty e1 = tcE gtenv Map.empty e2
-
-let type_check_arr_index (typ:Typ) =
-    let gtenv = Map.add "a" typ Map.empty |> Map.add "b" (ATyp (typ,Some 3))
-    let e1 = Access(AIndex(AVar "b", Exp.N 1))
-    let e2 = Access(AVar("a"))
-    tcE gtenv Map.empty e1 = tcE gtenv Map.empty e2
-
-Check.Quick type_check_addr_deref
-Check.Quick type_check_arr_index
+            | _ -> true
+   
+Check.QuickAll<Properties>()
 
 let test () =
     test_passing_program type_checking_tree_1 "1"

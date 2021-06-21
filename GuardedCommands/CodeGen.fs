@@ -99,6 +99,8 @@ module CodeGeneration =
  
         | Apply("-", [e]) -> CE vEnv fEnv e @  [CSTI 0; SWAP; SUB]
         | Apply("!", [e]) -> CE vEnv fEnv e @  [NOT]
+        | Apply("++", [e]) -> CE vEnv fEnv e @  [CSTI 1; ADD]
+        | Apply("--", [e]) -> CE vEnv fEnv e @  [CSTI 1; SUB]
  
         | Apply("&&",[b1;b2]) -> let labend   = newLabel()
                                  let labfalse = newLabel()
@@ -179,6 +181,9 @@ module CodeGeneration =
 
         | Call(f, expressions) ->
             function_call vEnv fEnv f expressions
+
+        | Inc(acc) -> CA vEnv fEnv acc @ [LDI; CSTI 1; ADD] @ CA vEnv fEnv acc @ [INCSP (-1); STI]
+        | Dec(acc) -> CA vEnv fEnv acc @ [LDI; CSTI 1; SUB] @ CA vEnv fEnv acc @ [INCSP (-1); STI]
  
     and CSs vEnv fEnv stms = List.collect (CS vEnv fEnv) stms 
  
