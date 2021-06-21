@@ -1,4 +1,5 @@
-﻿{
+﻿// Author (to extensions): Tobias Thomsen, 11/06 - 21/06
+{
 module Lexer
 open System
 open System.Text
