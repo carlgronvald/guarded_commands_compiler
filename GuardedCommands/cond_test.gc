@@ -1,0 +1,7 @@
+begin
+  a : bool, 
+  x: int;
+  a := false;
+  x := a ? 1 : 2; 
+  print x
+end
