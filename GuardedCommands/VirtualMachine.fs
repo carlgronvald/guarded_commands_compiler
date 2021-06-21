@@ -2,6 +2,9 @@
 // machine.c and Machine.java from the MicroC compiler by  Peter Sestoft
 
 // Michael R. Hansen 07-06-2021
+
+// Alterations: Carl Frederik Grønvald, 18/06 - 21/06 2021 (Change PrintC, create runt)
+
 module VirtualMachine
 
 let CODECSTI   = 0 
