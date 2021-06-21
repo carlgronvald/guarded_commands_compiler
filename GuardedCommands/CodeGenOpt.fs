@@ -161,7 +161,11 @@ module CodeGenerationOpt =
             | _ ->  let (jumpend,  k1) = makeJump k
                     let (labfalse, k2) = addLabel (addCST 1 k1)
                     CE b1 vEnv fEnv (IFNZRO labfalse :: CE b2 vEnv fEnv (addJump jumpend k2))
-        
+        | Apply("?", [e1; e2; e3]) ->   let labfalse = newLabel()
+                                        let labend   = newLabel()
+                                        // CE vEnv fEnv e1 @ [IFZERO labfalse] @  CE vEnv fEnv e2 @ [GOTO labend; Label labfalse] @ CE vEnv fEnv e3  @ [Label labend]
+                                        CE e1 vEnv fEnv ((IFZERO labfalse)::(CE e2 vEnv fEnv  (GOTO labend :: Label labfalse::(CE e3 vEnv fEnv (Label labend::k))))) 
+                                        //CE e1 vEnv fEnv k @ [IFZERO labfalse] @  CE e2 vEnv fEnv k @ [GOTO labend; Label labfalse] @ CE e3 vEnv fEnv k  @ 
         //add operation case 
         | Apply(o,[e1;e2])  when List.exists (fun x -> o=x) ["+";"*";"/";"<";">";"<=";">=";"<>";"=";"-"]
                            -> let ins = match o with
@@ -241,10 +245,10 @@ module CodeGenerationOpt =
         match stm with
         | PrintLn e        -> CE e vEnv fEnv (PRINTI:: addINCSP -1 k) 
  
+        | Mass(accs, es) ->
+            List.fold (fun k (acc, e) -> CS (Ass(acc,e)) vEnv fEnv k ) k (List.zip accs es)
+
         | Ass(acc,e)       -> CA acc vEnv fEnv (CE e vEnv fEnv (STI:: addINCSP -1 k))
-        
-        | Mass(accs, es) -> 
-            List.fold (fun s (acc, e) -> CS (Ass(acc,e)) vEnv fEnv k ) k (List.zip accs es)
 
         | Block([],stms)   -> CSs stms vEnv fEnv k
  

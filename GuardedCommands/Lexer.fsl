@@ -55,6 +55,7 @@ rule tokenize =
   | "->"        { TO }
   | ":="        { ASG   }
   | "!"         { NEG }
+  | "?"         { COND }
   | "&&"        { AND }
   | "<>"        { NEQ }
   | "<"         { LT }

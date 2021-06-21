@@ -22,7 +22,7 @@ module AST =
    type Stm  =                            
           | PrintLn of Exp               (* Print                          *) 
           | Ass of Access * Exp          (* x:=e  or  p^:=e  or  a[e]:=e   *)
-          | Mass of (Access list)*(Exp list)
+          | Mass of Access list * Exp list 
           | Return of Exp option         (* Return from function           *)   
           | Alt of GuardedCommand        (* Alternative statement          *) 
           | Do of GuardedCommand         (* Repetition statement           *) 

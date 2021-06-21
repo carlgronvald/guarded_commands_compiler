@@ -43,7 +43,6 @@ module TypeCheck =
         | Do(gc) -> returning_gc gc
         | Block(_, stms) -> List.exists returning_statement stms
         | Call _ -> false
-        | Mass _ -> false
 
     /// Checks whether all paths through a GC end in a return
     and returning_gc (GC(ls)) =
@@ -64,13 +63,21 @@ module TypeCheck =
             | Apply(f,[e1;e2]) when List.exists (fun x ->  x=f) binary_operators
                             -> tcDyadic gtenv ltenv f e1 e2   
 
+            // e1 ? e2 : e3 
+            | Apply("?", [e1;e2;e3]) -> if tcE gtenv ltenv e1 <> BTyp then failwith ("Illigal type for conditional expression")  else
+                                        if tcE gtenv ltenv e2  <> tcE gtenv ltenv e3 then failwith ("The two branches in conditional should be the same type!") else
+                                            tcE gtenv ltenv e2
+
             | Apply(f, es) -> // Function call
                 tcNaryFunction gtenv ltenv f es
 
             | Addr(acc) ->
                 tcA gtenv ltenv acc |> PTyp
+            
 
-            //| s                -> failwith (sprintf "tcE: not supported yet %A" s)
+
+
+            | s                -> failwith (sprintf "tcE: not supported yet %A" s)
 
     and tcMonadic gtenv ltenv f e = match (f, tcE gtenv ltenv e) with
                                     | (o, ITyp) when List.exists (fun x -> x=o) unary_int_operators -> ITyp
@@ -153,10 +160,10 @@ module TypeCheck =
                                 let etyp = tcE gtenv ltenv e
                                 if atyp = etyp 
                                 then ()
-                                else failwith (sprintf "illtyped assignment %A = %A, %A=%A" acc e atyp etyp)                                
-                            | Mass(accs, es) -> 
-                                let listOfAccess = List.zip accs es      
-                                List.iter (fun (a,e) -> tcS gtenv ltenv (Ass(a,e))) listOfAccess
+                                else failwith (sprintf "illtyped assignment %A = %A, %A=%A" acc e atyp etyp) 
+                            | Mass(accs, es)   ->
+                                let listOfAccess = List.zip accs es
+                                List.iter (fun (a,e) -> tcS gtenv ltenv (Ass(a,e))) listOfAccess                               
                             | Block([],stms) -> List.iter (tcS gtenv ltenv) stms
                             | Block(decs, stms) ->
                                 //if List.length decs > 0 then failwith "Inner local declarations are currently disallowed!" 
